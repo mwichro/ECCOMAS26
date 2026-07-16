@@ -9,6 +9,38 @@
 
 \include{preamble}
 
+% ---------------------------------------------------------------------------
+% pgfplots setup (styles copied from the papers so their figures compile here)
+% ---------------------------------------------------------------------------
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{fillbetween}
+
+\pgfplotscreateplotcyclelist{paper markers}{
+  {teal,    solid, mark=*},
+  {orange,  solid, mark=triangle*},
+  {blue,    solid, mark=square*},
+  {red,     solid, mark=pentagon*},
+  {violet,  solid, mark=otimes*},
+  {brown,   solid, mark=halfcircle*},
+  {black,   solid, mark=diamond*},
+}
+\newcommand{\plotwidth}{0.49\columnwidth}
+\newcommand{\plotheight}{0.4\columnwidth}
+\pgfplotsset{
+  paperplot/.style={
+      width=\plotwidth, height=\plotheight,
+      cycle list name=paper markers,
+      every axis/.append style={font=\scriptsize},
+      grid=major, thick},
+  longplot/.style={
+      width=0.8\columnwidth, height=\plotheight,
+      cycle list name=paper markers,
+      every axis/.append style={font=\scriptsize},
+      grid=major, thick}
+}
+\input{pgfplots_cyclelistset}
+
 \newcommand{\GAMM}{PRESENTATION}
 
 \usepackage{amsmath,amssymb,amsfonts,graphicx,hyperref}
@@ -16,13 +48,21 @@
 \usepackage{multicol}
 \usepackage{tikz}
 \usepackage{color}
+\usetikzlibrary{calc,positioning}
+
+% transfer operator shorthands (from the papers' shared macros)
+\newcommand{\resth}[1]{\mathcal R_{#1}}
+\newcommand{\prolh}[1]{\mathcal P_{#1}}
+\newcommand{\restp}[1]{\mathcal R_{#1}}
+\newcommand{\prolp}[1]{\mathcal P_{#1}}
 
 % Title information
-\title[Short title]{PROPER TITLE}
+\title[Multigrid all the way down]{Multigrid, All the Way Down:\\
+  Patch Smoothers with p-Multigrid Local Solvers\\ and a GPU-First Rewrite}
 
-\author[Wichrowski et al.]{\underline{Michał Wichrowski}}
+\author[Wichrowski]{\underline{Michał Wichrowski}}
 \institute{Heidelberg University}
-\date{GAMM 2025}
+\date{ECCOMAS 2026}
 
 \usetheme{metropolis}
 \setbeamercolor{block title}{fg=white,bg=structure.fg}
@@ -32,25 +72,19 @@
 \titlegraphic{
     \includegraphics[width=3cm]{Heidelberg.jpeg}}
 
-% \author{ \Large Michał Wichrowski}
 \institute{ Heidelberg University}
-% \date{\today}
 \makeatletter
 \setbeamertemplate{title page}{
     \begin{minipage}[b][\paperheight]{\textwidth}
-        % \hfill \inserttitlegraphic
-        %  \ifx\insertinstitute\@empty\else\usebeamertemplate*{institute}\fi
         \hfill \begin{minipage}{0.3\textwidth}
             \includegraphics[width=\textwidth]{hd_transparet.png}
-            % \ifx\insertinstitute\@empty\else\usebeamertemplate*{institute}\fi
         \end{minipage}
         \vfill%
         \ifx\inserttitle\@empty\else\usebeamertemplate*{title}\fi
         \ifx\insertsubtitle\@empty\else\usebeamertemplate*{subtitle}\fi
         \usebeamertemplate*{title separator}
         \ifx\beamer@shortauthor\@empty\else{\usebeamertemplate*{author}}\fi
-        \hfill	% \ifx\insertdate\@empty\else\usebeamertemplate*{date}\fi
-        % \ifx\insertinstitute\@empty\else\usebeamertemplate*{institute}\fi
+        \hfill \usebeamertemplate*{date}
         \vfill
         \vspace*{1mm}
     \end{minipage}
@@ -63,21 +97,524 @@
     \titlepage
 \end{frame}
 
-\begin{frame}{Conclusions}
-    % \setbeamercolor{background canvas}{bg=black}
-    % \setbeamercolor{background}{bg=black}
-    % \begin{tikzpicture}[remember picture,overlay]
-    %     \node[at=(current page.center)] {
-    %         \includegraphics[width=\paperwidth,height=\paperheight]{cpu.png}
-    %     };
-    % \end{tikzpicture}
+% ===========================================================================
+% PART I : MOTIVATION
+% ===========================================================================
+
+\begin{frame}{Setting: high-order FEM + geometric multigrid}
     \begin{itemize}
-        \item Concluusion 1
-        \item Concluusion 2
+        \item Poisson-type problems, $\mathbb Q_p$ tensor-product elements, mesh hierarchy
+              $\mesh_1 \sqsubset \dots \sqsubset \mesh_L$
+        \item Matrix-free operator evaluation with sum factorization:
+              $\mathcal O(p^{d+1})$ work, $\mathcal O(p^d)$ memory
+        \item Multigrid V-cycle needs a \alert{smoother} on every level
+    \end{itemize}
+    \vfill
+    \begin{block}{Vertex patch (Schwarz) smoothers}
+        \begin{itemize}
+            \item Overlapping subspace correction on patches of $2^d$ cells around each vertex
+            \item Robust in the polynomial degree $p$ \hfill {\small [Pavarino '93]}
+            \item Excellent data locality --- great fit for modern hardware
+            \item Handle Stokes, CutFEM, shifted boundary, \dots
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+% tikz helpers for the patch-smoother workflow figure (must live outside the
+% frame: beamer frames choke on #1/#2 in definitions)
+\newcommand{\drawPatchInteriorDoFs}[2]{
+    \foreach \i in {1,...,5} {
+            \foreach \j in {1,...,5} {
+                    \pgfmathsetmacro{\xi}{\i/6}
+                    \pgfmathsetmacro{\eta}{\j/6}
+                    \coordinate (NW) at (#1.north west);
+                    \coordinate (SE) at (#2.south east);
+                    \coordinate (pt_x) at ($(NW)!\xi!(SE)$);
+                    \coordinate (pt_y) at ($(NW)!\eta!(SE)$);
+                    \coordinate (pt) at (pt_x |- pt_y);
+                    \node[dof, minimum size=4pt, inner sep=0pt, fill=blue] at (pt) {};
+                }
+        }
+}
+\newcommand{\drawCubicDoFs}[1]{
+    \foreach \xi in {0, 0.33, 0.66, 1} {
+            \foreach \eta in {0, 0.33, 0.66, 1} {
+                    \coordinate (bottom) at ($(#1.south west)!\xi!(#1.south east)$);
+                    \coordinate (top) at ($(#1.north west)!\xi!(#1.north east)$);
+                    \node[dof, minimum size=3pt, inner sep=0pt, fill=red] at ($(bottom)!\eta!(top)$) {};
+                }
+        }
+}
+\newcommand{\drawInteriorFrame}[2]{%
+    \draw[rounded corners=3pt, thick, draw=blue!60!black, fill=gray!80, fill opacity=0.1, densely dashed]
+    ([shift={(4pt,-4pt)}]#1.north west)
+    rectangle
+    ([shift={(-4pt,4pt)}]#2.south east);%
+}
+
+\begin{frame}{One smoother step on one patch}
+    \begin{center}
+        \resizebox{\textwidth}{!}{%
+            \begin{tikzpicture}[font=\normalsize,
+                    cell/.style={draw=black, thick, minimum size=1.2cm},
+                    panel-label/.style={font=\bfseries\normalsize, align=center},
+                    arrow/.style={->, thick, shorten >=2mm, shorten <=2mm},
+                    dof/.style={circle, fill=black, inner sep=0.8pt}
+                ]
+                % Panel 1: Gather data
+                \node[cell] (p1c1) at (0,0) {};
+                \node[cell] (p1c2) at (1.2,0) {};
+                \node[cell] (p1c3) at (0,-1.2) {};
+                \node[cell] (p1c4) at (1.2,-1.2) {};
+                \drawInteriorFrame{p1c1}{p1c4}
+                \drawCubicDoFs{p1c1}
+                \drawCubicDoFs{p1c2}
+                \drawCubicDoFs{p1c3}
+                \drawCubicDoFs{p1c4}
+                \drawPatchInteriorDoFs{p1c1}{p1c4}
+                \node[panel-label, below=0.3cm of p1c3.south west, anchor=north west] {Solution\\ Right-hand side\\(all DoFs)};
+
+                % Panel 2: Residual
+                \node[cell] (p2c1) at (4.5,0) {};
+                \node[cell] (p2c2) at (5.7,0) {};
+                \node[cell] (p2c3) at (4.5,-1.2) {};
+                \node[cell] (p2c4) at (5.7,-1.2) {};
+                \drawInteriorFrame{p2c1}{p2c4}
+                \drawPatchInteriorDoFs{p2c1}{p2c4}
+                \node[panel-label, below=0.3cm of p2c3.south west, anchor=north west] {Residual \\ (interior DoFs)};
+
+                % Panel 3: Correction and scatter
+                \node[cell] (p3c1) at (9,0) {};
+                \node[cell] (p3c2) at (10.2,0) {};
+                \node[cell] (p3c3) at (9,-1.2) {};
+                \node[cell] (p3c4) at (10.2,-1.2) {};
+                \drawInteriorFrame{p3c1}{p3c4}
+                \drawPatchInteriorDoFs{p3c1}{p3c4}
+                \node[panel-label, below=0.3cm of p3c3.south west, anchor=north west] {Correction\\(interior only)};
+
+                \draw[arrow] ($(p1c3.west) - (2cm, 0)$) -- node[above, midway] {$\overline\Pi_j u, \;\; \Pi_j b $} node[below, midway] {Gather} (p1c3.west);
+                \draw[arrow] (p1c4.east) -- node[above, midway] {$b_j - \Pi_j\overline A_j \overline u_j$} node[below, midway] {Evaluate} (p2c3.west);
+                \draw[arrow] (p2c4.east) -- node[above, midway]{$\tilde A_j^{-1} r_j$} node[below, midway] {Local Solve} (p3c3.west);
+                \draw[arrow] (p3c4.east) -- node[above, midway]{$\Pi_j^T d_j$} node[below, midway] {Scatter} ($(p3c4.east) + (2cm, 0)$);
+            \end{tikzpicture}}
+    \end{center}
+    \vfill
+    \begin{itemize}
+        \item Multiplicative (Gauss--Seidel-like) sweep over all vertex patches
+        \item Everything is matrix-free and cache-friendly \dots
+        \item \alert{except:} what is $\tilde A_j^{-1}$? \quad
+              $(p{+}1)^d$-sized dense problem on \emph{every} patch, \emph{every} sweep
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{The classical answer: fast diagonalization}
+    For a \alert{separable} operator on a \alert{Cartesian} patch (Lynch, Rice, Thomas '64):
+    \begin{gather*}
+        A_j = L_x \otimes M_y + M_x \otimes L_y
+        \qquad\Longrightarrow\qquad
+        A_j^{-1} = (Q_x \otimes Q_y)\, \Lambda^{-1} (Q_x \otimes Q_y)^T
+    \end{gather*}
+    with 1D eigendecompositions $L Q = M Q \Lambda$.
+    \begin{itemize}
+        \item Exact inverse, applied with tensor contractions: $\mathcal O(p^{d+1})$ --- same cost as one operator application
+        \item The workhorse of state-of-the-art patch smoothers \hfill {\small [Witte, Arndt, Kanschat '21]}
+    \end{itemize}
+    \vfill
+    \begin{alertblock}{But\dots}
+        \begin{itemize}
+            \item Requires separability: Cartesian cells, constant coefficients
+            \item Deteriorates on deformed grids, breaks on unstructured patches
+        \end{itemize}
+    \end{alertblock}
+    \vfill
+    \centering
+    So what do we do on a \emph{general} patch?
+\end{frame}
+
+% ===========================================================================
+% THE PUN SLIDE
+% ===========================================================================
+
+\begin{frame}[plain]{}
+    \vfill
+    \begin{center}
+        {\Large\itshape ``Think outside the box.''}\\[0.5em]
+        {\normalsize --- Edward de Bono \onslide<3->{\alert{(probably)}}}
+    \end{center}
+    \vfill
+    \onslide<2->{
+        \begin{center}
+            {\Large\itshape ``There is nothing better than a great box.''}\\[0.5em]
+            \onslide<3->{{\normalsize --- Micro \alert{(probably)}}}
+        \end{center}
+    }
+    \vfill
+    \onslide<4->{
+        \begin{center}
+            % PLACEHOLDER: photo of Micro the cat goes here
+            \begin{tikzpicture}
+                \node[draw, thick, dashed, minimum width=4.5cm, minimum height=3cm, align=center]
+                {\textbf{[photo of Micro]}\\ \small sitting in a box, obviously};
+            \end{tikzpicture}
+        \end{center}
+    }
+    \vfill
+\end{frame}
+
+% ===========================================================================
+% PART II : MULTIGRID-WITHIN-MULTIGRID
+% ===========================================================================
+
+\begin{frame}{The box we are already in: multigrid}
+    How was multigrid invented in the first place?
+    \begin{enumerate}
+        \item Jacobi/Gauss--Seidel kill high frequencies, stall on low ones
+        \item Fix: correct the low frequencies on a coarser grid $\to$ two-level method
+        \item \emph{``And how do we solve the coarse problem?''} \quad
+              \alert{Add another level.} Recurse.
+    \end{enumerate}
+    \vfill
+    \begin{block}{The local patch problem is \emph{the same question}}
+        \emph{``How do we solve the local problem?''} \quad \alert{Add more levels!}
+        \begin{itemize}
+            \item Solve each patch problem with its own multigrid
+            \item h-coarsening impossible: a patch is only $2^d$ cells
+            \item $\Rightarrow$ coarsen in the polynomial degree: \alert{p-multigrid}
+        \end{itemize}
+    \end{block}
+    \vfill
+    \centering \emph{Multigrid-within-multigrid:} stay matrix-free, iterative, and lean --- all the way down.
+\end{frame}
+
+\begin{frame}{The local p-multigrid solver}
+    \begin{columns}[T]
+        \begin{column}{0.55\textwidth}
+            \textbf{Hierarchy on the patch} (mesh fixed):
+            \begin{gather*}
+                V_{j,1} \subset V_{j,3} \subset V_{j,7} \subset \dots \subset V_{j,p}
+            \end{gather*}
+            nested degrees $p_{k+1} = 2p_k + 1$
+            \begin{itemize}
+                \item Transfers: tensorized $L^2$ projections,\\ $\mathcal O(p^{d+1})$ via sum factorization
+                \item Level operators: matrix-free,\\ evaluated on lower-degree basis
+                \item Smoother: damped Jacobi\\
+                      (or fast diagonalization of the\\ \emph{reference} patch as preconditioner:\\ the ``Cartesian-reinforced'' smoother)
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.45\textwidth}
+            \begin{block}{Coarse solver ($p=1$)}
+                One interior node left:
+                \begin{gather*}
+                    A_{j,1}^{-1} = \frac{1}{A_{j,1}}
+                \end{gather*}
+                The coarse solve is \alert{a single division}.
+            \end{block}
+            \vspace{0.5em}
+            \begin{itemize}
+                \item Memory: $\mathcal O(p^d)$ --- optimal
+                \item Work per V-cycle: $\mathcal O(p^{d+1})$,\\ same as \emph{one} operator application (up to a constant)
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Does it survive ugly patches?}
+    \begin{center}
+        \resizebox{0.8\textwidth}{!}{\input{figures/patch_def.tex}}
+    \end{center}
+    \begin{itemize}
+        \item Random vertex displacement $\delta h$; up to near-degenerate cells (angles $\to 180^\circ$)
+        \item Structured (top) and simplicial/unstructured (bottom) patches
+        \item Jacobi variant: geometry-agnostic, mild growth with distortion
+        \item Cartesian-reinforced: superb near-Cartesian, sensitive to heavy 3D distortion
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Iteration counts: the full multigrid solver}
+    GMRES iterations, geometric MG preconditioner, Cartesian-reinforced local smoother,
+    \alert{one} local p-MG V-cycle (in parentheses: nearly exact local solve, $N_{\text{MG}}=25$):
+    \begin{table}
+        \centering
+        \small
+        \vspace{-0.5em}
+        \begin{tabular}{l|cccc|cccc}
+            \toprule
+                                & \multicolumn{4}{c|}{2D} & \multicolumn{4}{c}{3D}                                                   \\
+            $p\setminus \delta$ & 0\%                     & 10\%                   & 25\%  & 35\%    & 0\%   & 10\%  & 25\%  & 30\%  \\
+            \midrule
+            3                   & 4 (4)                   & 5 (5)                  & 6 (6) & 8 (7)   & 5 (4) & 5 (4) & 6 (5) & 6 (5) \\
+            7                   & 3 (3)                   & 5 (5)                  & 6 (6) & 9 (7)   & 4 (3) & 4 (4) & 5 (5) & 6 (5) \\
+            15                  & 3 (3)                   & 5 (5)                  & 6 (6) & --- (7) & 4 (3) & 4 (4) & 5 (5) & 6 (5) \\
+            \bottomrule
+        \end{tabular}
+        \vspace{-0.5em}
+    \end{table}
+    \begin{itemize}
+        \item Essentially \alert{p-robust}, even at 25--30\% distortion
+        \item One inexact local V-cycle $\approx$ exact local solves
+              {\small (a perturbation theorem with explicit constants says why)}
+        \item Reference: cell-wise additive smoother [Witte et al.\ '21], $p=15$, $\delta=25\%$: \alert{66 iterations} in 2D, \alert{80} in 3D
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Iteration counts: Kershaw meshes}
+    \begin{columns}[T]
+        \begin{column}{0.32\textwidth}
+            \includegraphics[width=0.9\textwidth]{figures/kershaw2D.pdf}
+            \vspace{0.2em}
+            \includegraphics[width=0.9\textwidth]{figures/kershaw3D.pdf}
+        \end{column}
+        \begin{column}{0.68\textwidth}
+            {\small GMRES iterations, Jacobi local smoother, $N_{\text{MG}}=1$\\
+                (parentheses: Brubeck \& Farrell '21, exact patch solves)}
+            \begin{table}
+                \footnotesize
+                \vspace{-0.5em}
+                \begin{tabular}{rl|ccc}
+                    \toprule
+                    $d$ & $p\setminus L$ & 2                 & 3  & 4  \\
+                    \midrule
+                        & 3              & 16 \,(54)         & 15 & 13 \\
+                    2   & 7              & 13 \,(78)         & 14 & 14 \\
+                        & 15             & 19 \,(90)         & 15 & 13 \\
+                    \midrule
+                        & 3              & 18 \,(102)        & 18 & 16 \\
+                    3   & 7              & \alert{15} \,(\alert{158}) & 17 & 17 \\
+                    \bottomrule
+                \end{tabular}
+                \vspace{-0.5em}
+            \end{table}
+            \begin{itemize}
+                \small
+                \item p-robust \emph{and} h-robust: iterations \emph{decrease} with more levels $L$
+                \item Inexact, iterative local solves beat exact patch factorizations by $10\times$
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ===========================================================================
+% PART III : CPU PERFORMANCE
+% ===========================================================================
+
+\begin{frame}{Performance: local solver strategies (CPU)}
+    Single Cartesian patch, $p=7$, normalized by one patch operator application $Au$:
+    \begin{table}
+        \centering
+        \small
+        \begin{tabular}{lccc}
+            \toprule
+            \textbf{Local solver}          & \textbf{Rel.\ time} & \textbf{Rel.\ FLOPs} & \textbf{GFLOP/s} \\
+            \midrule
+            V-cycle (Jacobi)               & 3.39                & 2.27                 & 15.1             \\
+            \alert{Half V-cycle (Jacobi)}  & \alert{2.01}        & 1.17                 & 13.2             \\
+            V-cycle (Cart.-reinforced)     & 8.68                & 3.67                 & 9.59             \\
+            Half V-cycle (Cart.-reinf.)    & 4.67                & 1.87                 & 9.08             \\
+            \midrule
+            Fast diagonalization           & 2.60                & \alert{0.68}         & 5.95             \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \begin{itemize}
+        \item Half V-cycle Jacobi is \alert{faster than fast diagonalization} (2.01 vs 2.60) \dots
+        \item \dots while doing \alert{$1.7\times$ more FLOPs}: throughput beats operation count
+        \item FLOPs are cheap; memory traffic is not --- a recurring theme today
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Performance: full smoother on 32 cores}
+    \small
+    Wall-clock time of one smoother sweep relative to one global matrix-free $Au$
+    (each cell sits in $2^d = 8$ patches $\Rightarrow$ naive lower bound $8\times Au$).
+    Left: Cartesian, right: distorted.
+    \par
+    \normalsize
+    \begin{center}
+        \resizebox{0.74\textwidth}{!}{\input{figures/threads_timing.tex}}
+    \end{center}
+    \vspace{-0.5em}
+    \begin{itemize}
+        \small
+        \item On fine meshes the smoother costs $\lesssim 8\times Au$: patch-local work is cache-resident while global $Au$ is memory-bound
+        \item Vertex-patch robustness at (nearly) block-Jacobi cost
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{So we won\dots\ right?}
+    What the measurements actually say:
+    \begin{itemize}
+        \item The kernels run at high GFLOP/s, but the \alert{gather/scatter} into global vectors and geometry data dominates on general meshes
+        \item Global operator evaluation is \alert{memory-bandwidth-bound}; the smoother wins partly because the library's global loop is not optimal
+        \item Fixed overheads (data reshuffling, synchronization) cap further gains
+    \end{itemize}
+    \vfill
+    \begin{alertblock}{Clearly, more can be done. But that means touching the foundations.}
+        \centering
+        Do we fix a 500\,000-line legacy FEM library\dots\ or rewrite from scratch?
+        \\[0.5em]
+        \pause
+        {\large Obvious choice: \alert{rewrite.}}
+    \end{alertblock}
+\end{frame}
+
+% ===========================================================================
+% PART IV : GPU / DDS
+% ===========================================================================
+
+\begin{frame}{Rewrite assumptions: what modern hardware wants}
+    \textbf{Target: GPUs} (A100: 1.7\,TB/s DRAM, fp64 tensor cores)
+    \begin{itemize}
+        \item Nominal bandwidth attainable \alert{only} with \emph{coalesced} access:
+              a warp must read consecutive words
+        \item An uncoalesced gather fetches a whole cache line per useful word
+    \end{itemize}
+    \vfill
+    \begin{block}{The classical matrix-free pipeline is built around its worst operation}
+        gather cell DoFs $\to$ compute $\to$ scatter-accumulate (atomics!)
+        \\ Indirect addressing on \emph{every} operator application.
+    \end{block}
+    \vfill
+    \begin{block}{Our answer: make the \emph{cell-wise} vector the persistent storage}
+        \begin{itemize}
+            \item DoFs duplicated across element interfaces --- DG-like storage for CG
+            \item Every access coalesced; no read-accumulate, no atomics
+            \item Price: up to $8\times$ memory at $p=1$, shrinking fast with $p$
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}{The key identity: primal--dual pairing}
+    Two kinds of vectors live in the redundant cell-wise space $\mathbb V_{\text{cell}}$:
+    \begin{itemize}
+        \small
+        \item \textbf{Primal} $u$: continuous fields, duplicated entries agree: $u = Cu$\\
+              {\footnotesize ($C$ = any idempotent projection onto continuous fields; encodes hanging nodes too)}
+        \item \textbf{Dual} $\tilde r$: raw unassembled cell integrals (residuals) --- valid \emph{without} summation
+    \end{itemize}
+    \begin{block}{Duality pairing identity}
+        \vspace{-1.2em}
+        \begin{gather*}
+            u = Cu \quad\Longrightarrow\quad
+            \langle \tilde r, u \rangle
+            = \langle \tilde r, C u \rangle
+            = \langle C^T \tilde r, u \rangle
+        \end{gather*}
+        \vspace{-1.6em}\\
+        {\small The \emph{local} pairing of unassembled residuals with a continuous field
+        \alert{equals the assembled global pairing.}}
+    \end{block}
+    \begin{itemize}
+        \small
+        \item CG/FGMRES written so every inner product pairs one primal with one dual
+              $\Rightarrow$ \alert{no assembly, no communication in the Krylov loop};
+              provably identical iterates to the classical assembled solver
+        \item Only the preconditioner bridges the spaces (one DSS inside it)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Results: operator throughput (A100, fp64)}
+    Laplace operator, cell-wise storage, sum-factorized, degrees $p=1,\dots,7$:
+    \begin{table}
+        \centering
+        \footnotesize
+        \begin{tabular}{l ccccccc}
+            \toprule
+                                        & $\mathbb{Q}_1$ & $\mathbb{Q}_2$ & $\mathbb{Q}_3$ & $\mathbb{Q}_4$ & $\mathbb{Q}_5$ & $\mathbb{Q}_6$ & $\mathbb{Q}_7$ \\
+            \midrule
+            GDoF/s (unique)             & 14.1           & 32.4           & 42.4           & 37.9           & 37.9           & 39.5           & 59.6           \\
+            Memory throughput [GB/s]    & 1751           & 1727           & 1628           & 1219           & 1044           & 999            & 1421           \\
+            \midrule
+            theory TFLOP/s              & \alert{2.81}   & \alert{3.15}   & \alert{5.58}   & \alert{5.14}   & \alert{5.48}   & \alert{6.12}   & \alert{9.95}   \\
+            CUDA reference$^*$ TFLOP/s  & ---            & 1.30           & 1.32           & 2.02           & 2.21           & 1.90           & 1.90           \\
+            \bottomrule
+        \end{tabular}
+        \caption*{\footnotesize $^*$hand-written CUDA kernels of Cui et al.\ 2025}
+    \end{table}
+    \begin{itemize}
+        \item Runs at the \alert{memory roofline}: exactly 2 doubles (1 read + 1 write) per DoF
+        \item Useful-work rate exceeds the CUDA reference \alert{at every degree}
+        \item Full assembled operator (apply + DSS) beats \alert{libCEED BP1} on the same device,
+              $1.6\times$ at $p=1$ up to $4.4\times$ at $p=5$
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Multigrid on top: hanging nodes for free}
+    Geometric multigrid on adaptive meshes, cell-wise storage (companion paper):
+    \begin{columns}[T]
+        \begin{column}{0.62\textwidth}
+            \begin{itemize}
+            \small
+            \item Classically: explicit constraint matrix $C_{HN}$, edge operators, special transfers
+                  [Janssen \& Kanschat '11]
+            \item Cell-wise: the constraint is \emph{absorbed} into the primal--dual structure ---
+                  $C_{HN} \mathcal P = \mathcal P$, so it \alert{resolves into an identity} in the transfer
+            \item Level-wise masking + DSS is all that remains; provably equivalent to the classical
+                  local V-cycle
+            \item \alert{DSS across hanging nodes: never needed}
+            \item Flexible CG $\Rightarrow$ smoothers may run in \alert{reduced precision} (bytes, again)
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.36\textwidth}
+            \includegraphics[width=\textwidth]{figures/coarse_grid.png}
+            \\ {\footnotesize Curved production-like mesh: DSS within a few \% of the structured ceiling}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Implementation: Triton}
+    The \emph{entire} solver stack is written in \alert{Triton}: a Python-embedded tile language for GPU kernels
+    \begin{itemize}
+        \item You write tile-level operations; the compiler handles registers, shared memory, coalescing
+        \item Dozens of lines of Python where CUDA needs hundreds --- and it runs on NVIDIA \emph{and} AMD
+        \item Sum-factorized 1D contractions map onto tensor-core (MMA) tiles
+    \end{itemize}
+    \vfill
+    \begin{block}{One catch: fp64 tensor cores want $8\times8\times4$ tiles}
+        For moderate $p$ the 1D matrices are too small for the tile shapes Triton supported.
+        \\[0.4em]
+        $\Rightarrow$ I implemented the small-tile fp64 MMAv2 shape ($8{\times}8{\times}4$) in the Triton
+        compiler and upstreamed it (\texttt{triton-lang/triton \#10060}).
+        \\[0.4em]
+        On the benchmarked MMA shapes, Triton now \alert{sometimes outperforms cuBLAS}.
+    \end{block}
+    \vfill
+    None of the results on the previous slides are possible without this.
+\end{frame}
+
+% ===========================================================================
+% SCOREBOARD + CONCLUSIONS
+% ===========================================================================
+
+\begin{frame}{The scoreboard}
+    Things this line of work has managed to beat:
+    \begin{itemize}
+        \item[\checkmark] \textbf{Fast diagonalization} --- half V-cycle Jacobi is faster on CPU,
+            despite $1.7\times$ the FLOPs
+        \item[\checkmark] \textbf{Exact patch solvers} --- 15 vs 158 iterations on 3D Kershaw
+            [Brubeck \& Farrell '21]; 66--80 vs $\sim$10 [Witte et al.\ '21]
+        \item[\checkmark] \textbf{Hand-written CUDA FEM kernels} --- Laplace useful-work throughput
+            above Cui et al.\ at every degree
+        \item[\checkmark] \textbf{libCEED BP1} --- full assembled operator up to $4.4\times$ faster on the same A100
+        \item[\checkmark] \textbf{cuBLAS} --- on small fp64 MMA shapes, with a compiler patch written in the process
+        \item[\checkmark] \textbf{Hanging nodes} --- eliminated by algebra, not by code
+    \end{itemize}
+    \vfill
+    \centering
+    \emph{Triton (Python!) beating CUDA is not a typo --- it's a memory-traffic story.}
+\end{frame}
+
+\begin{frame}{Conclusions}
+    \begin{itemize}
+        \item Patch smoothers are worth it --- if the local solve is cheap.
+              \alert{Multigrid-within-multigrid} makes it cheap, matrix-free, and robust
+              (p- and h-robust, distorted meshes, coefficient jumps)
+        \item On modern hardware, \alert{bytes beat FLOPs}: iterative local solvers outrun
+              direct ones, and cell-wise storage outruns assembled pipelines
               \begin{itemize}
-                  \item subConcluusion 2a
-                  \item subConcluusion 2b
+                  \item primal--dual pairing identity $\Rightarrow$ communication-free Krylov
+                  \item hanging nodes resolve into identity constraints
               \end{itemize}
+        \item Rewriting from scratch (in Triton) was the right call
     \end{itemize}
     \vfill
 

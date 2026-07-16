@@ -1,0 +1,91 @@
+% "cycle list set" patch copied from the paper preambles
+\makeatletter
+\def\pgfplots@getautoplotspec into#1{%
+    \begingroup
+    \let#1=\pgfutil@empty
+    \pgfkeysgetvalue{/pgfplots/cycle multi list/@dim}\pgfplots@cycle@dim
+    %
+    \let\pgfplots@listindex=\pgfplots@numplots
+    %%% Start new code
+    \pgfkeysgetvalue{/pgfplots/cycle list set}\pgfplots@listindex@set
+    \ifx\pgfplots@listindex@set\pgfutil@empty
+    \else
+      \c@pgf@counta=\pgfplots@listindex
+      \c@pgf@countb=\pgfplots@listindex@set
+      \advance\c@pgf@countb by -\c@pgf@counta
+      \globaldefs=1\relax
+      \edef\setshift{%
+        \noexpand\pgfkeys{
+          /pgfplots/cycle list shift=\the\c@pgf@countb,
+          /pgfplots/cycle list set=
+        }
+      }%
+      \setshift%
+      % restore globaldefs so the temporary global-assign mode does not
+      % persist and affect page counters or other global state
+      \globaldefs=0\relax
+    \fi
+    %%% End new code    
+    \pgfkeysgetvalue{/pgfplots/cycle list shift}\pgfplots@listindex@shift
+    \ifx\pgfplots@listindex@shift\pgfutil@empty
+    \else
+      \c@pgf@counta=\pgfplots@listindex\relax
+      \advance\c@pgf@counta by\pgfplots@listindex@shift\relax
+      \ifnum\c@pgf@counta<0
+        \c@pgf@counta=-\c@pgf@counta
+      \fi
+      \edef\pgfplots@listindex{\the\c@pgf@counta}%
+    \fi
+    \ifnum\pgfplots@cycle@dim>0
+      % use the 'cycle multi list' feature.
+      %
+      % it employs a scalar -> multiindex map like
+      % void fromScalar( size_t d, size_t scalar, size_t* Iout, const size_t* N )
+      % {
+      %   size_t ret=scalar;
+      %   for( int i = d-1; i>=0; --i ) {
+      %       Iout[i] = ret % N[i];
+      %       ret /= N[i];
+      %   }
+      % }
+      % to get the different indices into the cycle lists.
+      %-------------------------------------------------- 
+      \c@pgf@counta=\pgfplots@cycle@dim\relax
+      \c@pgf@countb=\pgfplots@listindex\relax
+      \advance\c@pgf@counta by-1
+      \pgfplotsloop{%
+        \ifnum\c@pgf@counta<0
+          \pgfplotsloopcontinuefalse
+        \else
+          \pgfplotsloopcontinuetrue
+        \fi
+      }{%
+        \pgfkeysgetvalue{/pgfplots/cycle multi list/@N\the\c@pgf@counta}\pgfplots@cycle@N
+        % compute list index:
+        \pgfplotsmathmodint{\c@pgf@countb}{\pgfplots@cycle@N}%
+        \divide\c@pgf@countb by \pgfplots@cycle@N\relax
+        %
+        \expandafter\pgfplots@getautoplotspec@
+        \csname pgfp@cyclist@/pgfplots/cycle multi list/@list\the\c@pgf@counta @\endcsname
+        {\pgfplots@cycle@N}%
+        {\pgfmathresult}%
+        \t@pgfplots@toka=\expandafter{#1,}%
+        \t@pgfplots@tokb=\expandafter{\pgfplotsretval}%
+        \edef#1{\the\t@pgfplots@toka\the\t@pgfplots@tokb}%
+        \advance\c@pgf@counta by-1
+      }%
+    \else
+      % normal cycle list:
+      \pgfplotslistsize\autoplotspeclist\to\c@pgf@countd
+
+      \pgfplots@getautoplotspec@{\autoplotspeclist}{\c@pgf@countd}{\pgfplots@listindex}%
+      \let#1=\pgfplotsretval
+    \fi
+    \pgfmath@smuggleone#1%
+    \endgroup
+  }
+
+\pgfplotsset{
+  cycle list set/.initial=
+}
+\makeatother

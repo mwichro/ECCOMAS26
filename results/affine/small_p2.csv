@@ -1,0 +1,10 @@
+section                     ,  mflops ,    num FLOP , mem trans , call count ,  runtime
+---------------------------------------------------------------------------------------
+PATCH_fetch_data            ,  3.6409 ,       82320 ,    0.0475 ,       6860 ,  0.02261
+PATCH_read_diagonals        , 13.8722 ,       82320 ,    0.0443 ,       6860 , 0.005934
+PATCH_read_rhs_and_solution , 14.5311 ,       82320 ,    0.0448 ,       6860 , 0.005665
+PATCH_compute_A_residual    , 14889.2 , 1.11214e+08 ,    0.0435 ,       6860 , 0.007469
+PATCH_local_solve           ,  5375.1 , 1.12936e+08 ,    0.0473 ,       6860 , 0.021011
+PATCH_distribute_to_global  ,  272.78 , 1.36232e+06 ,    0.0434 ,       6860 , 0.004994
+compute_A_operator          , 12449.8 , 2.07667e+07 ,    0.0209 ,       2560 , 0.001668
+PATCH_Au_to_residual        , 370.456 ,      521360 ,     0.044 ,       6860 , 0.001407

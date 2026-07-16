@@ -1,0 +1,98 @@
+\centering
+\begin{tabular}{|c|c|c|c|}
+  \hline
+      &      &             \\[-0.9em]
+  % first row: structured patches
+  \begin{tikzpicture}[scale=0.8, every node/.style={scale=0.8}]
+    \begin{axis}[
+        axis equal image,
+        hide axis,
+        width=0.32\columnwidth,
+        enlargelimits=false
+      ]
+      \addplot[black,thick,mark=none] table {figures/patch_def_data/patch00_2D_2.gp};
+    \end{axis}
+  \end{tikzpicture}
+      &
+  \begin{tikzpicture}[scale=0.8, every node/.style={scale=0.8}]
+    \begin{axis}[
+        axis equal image,
+        hide axis,
+        width=0.32\columnwidth,
+        enlargelimits=false
+      ]
+      \addplot[black,thick,mark=none] table {figures/patch_def_data/patch01_2D.gp};
+    \end{axis}
+  \end{tikzpicture}
+      &
+  \begin{tikzpicture}[scale=0.8, every node/.style={scale=0.8}]
+    \begin{axis}[
+        axis equal image,
+        hide axis,
+        width=0.32\columnwidth,
+        enlargelimits=false
+      ]
+      \addplot[black,thick,mark=none] table {figures/patch_def_data/patch025_2D_1.gp};
+    \end{axis}
+  \end{tikzpicture}
+      &
+  \begin{tikzpicture}[scale=0.8, every node/.style={scale=0.8}]
+    \begin{axis}[
+        axis equal image,
+        hide axis,
+        width=0.32\columnwidth,
+        enlargelimits=false
+      ]
+      \addplot[black,thick,mark=none] table {figures/patch_def_data/patch035_2D.gp};
+    \end{axis}
+  \end{tikzpicture}
+  \\
+  0\% & 10\% & 25\% & 35\%
+  \\
+  % second row: unstructured patches
+  \begin{tikzpicture}[scale=0.8, every node/.style={scale=0.8}]
+    \begin{axis}[
+        axis equal image,
+        hide axis,
+        width=0.32\columnwidth,
+        enlargelimits=false
+      ]
+      \addplot[black,mark=none] table {figures/patch_def_data/simplex00_2D_2.gp};
+    \end{axis}
+  \end{tikzpicture}
+      &
+  \begin{tikzpicture}[scale=0.8, every node/.style={scale=0.8}]
+    \begin{axis}[
+        axis equal image,
+        hide axis,
+        width=0.32\columnwidth,
+        enlargelimits=false
+      ]
+      \addplot[black,mark=none] table {figures/patch_def_data/simplex01_2D.gp};
+    \end{axis}
+  \end{tikzpicture}
+      &
+  \begin{tikzpicture}[scale=0.8, every node/.style={scale=0.8}]
+    \begin{axis}[
+        axis equal image,
+        hide axis,
+        width=0.32\columnwidth,
+        enlargelimits=false
+      ]
+      \addplot[black,mark=none] table {figures/patch_def_data/simplex025_2D.gp};
+    \end{axis}
+  \end{tikzpicture}
+      &
+  \begin{tikzpicture}[scale=0.8, every node/.style={scale=0.8}]
+    \begin{axis}[
+        axis equal image,
+        hide axis,
+        width=0.32\columnwidth,
+        enlargelimits=false
+      ]
+      \addplot[black,mark=none] table {figures/patch_def_data/simplex035_2D.gp};
+    \end{axis}
+  \end{tikzpicture}
+  \\
+  \hline
+\end{tabular}
