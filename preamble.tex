@@ -1,0 +1,226 @@
+
+\usepackage{amstext}
+\usepackage{stmaryrd}
+%\usepackage{listings}
+%\lstset{language=C++}
+%\usepackage[boxed]{algorithm2e}
+\usepackage{algpseudocode}
+\usepackage[algo2e,linesnumbered,vlined,commentsnumbered,ruled]{algorithm2e}
+
+\usepackage[normalem]{ulem}
+\usepackage{graphicx}
+
+%\usepackage{authblk}
+%\usepackage{xcolor}
+\usepackage{array}
+\usepackage{verbatim}
+\usepackage{booktabs}
+\usepackage{calc}
+\usepackage{textcomp}
+\usepackage{multirow}
+%\usepackage[boxed]{algorithm2e}
+
+\usepackage[all]{xy}
+
+\usepackage{cancel}
+\usepackage{mathtools}
+\usepackage{placeins}
+\usepackage{xspace}
+
+%\input{packages}
+
+\usepackage{tikz,tikzscale}
+\usetikzlibrary{calc}
+\usetikzlibrary{shadings}
+%\usepackage[backend=biber,style=alphabetic]{biblatex}
+%\addbibresource{literature.bib}
+
+%%%%%%%%%% Packages to help editing %%%%%%%%%%
+%\usepackage[notref,notcite]{showkeys} % Show labels.
+\usepackage[mode=multiuser,status=draft]{fixme} % Provide note, warning, error, fatal.
+%\fxsetup{layout=inline}%pdfcsignote}
+\fxsetup{envlayout=color}
+\fxsetup{innerlayout=inline}
+\fxsetup{targetlayout=colorcb}
+\FXProvidesTargetLayout{color}
+
+\fxusetheme{color}
+\FXRegisterAuthor{ss}{envss}{SS}
+\FXRegisterAuthor{mr}{envmr}{MR}
+\FXRegisterAuthor{mw}{envmw}{MW}
+\FXRegisterAuthor{mk}{envmk}{MK}
+
+\usepackage{subcaption}
+\usepackage[format=plain,indention=.5cm]{caption}
+
+%%%% mathematica code
+\usepackage{tcolorbox}
+\usepackage{listings}
+\tcbuselibrary{listings}
+
+\definecolor{mathematicablue}{RGB}{0,0,150}
+\lstdefinestyle{mathematica}{
+	language=Mathematica,
+	basicstyle=\ttfamily\small,
+	keywordstyle=\color{mathematicablue}\bfseries,
+	commentstyle=\color{gray}\itshape,
+	stringstyle=\color{purple},
+	showstringspaces=false,
+	breaklines=true
+}
+
+%%%%%
+
+\begin{comment}
+
+\DontPrintSemicolon
+\SetKwComment{Comment}{$\triangleleft$ }{}
+\SetKwProg{Fn}{Function}{}{end}
+
+\providecommand{\keywords}[1]
+{
+	\small
+	\textbf{\textit{Keywords:}} #1
+}
+\end{comment}
+% \newcommand{\FigureSubst}[1]{ \fbox{ 
+% \begin{minipage} {0.7\textwidth} #1  
+% \end{minipage}  }   }
+
+\def\mesh{\mathcal{T}}
+\def\cell{K}
+\def\R{\mathbb R}
+\def\ncol{N_{\text{colors}}}
+\def\rest#1{I_{#1}^\downarrow}
+\def\prol#1{I_{#1}^\uparrow}
+
+\newcommand{\pluseq}{\stackrel{+}{\gets}}
+%\newcommand{\pluseq}{\stackbin{+}{=}}
+
+\newcommand{\Dd}{\text{d}}
+\newcommand{\DD}{\text{D}}
+
+% Mohsen's setting and definitions
+%###################################%
+\usepackage{bm,upgreek}
+\newcommand\rd{{\rm{d}}}
+\newcommand{\bfm}[1]{{\rm\bf #1}}
+
+\newcommand{\greentext}[1]{{\color{darkgreen} #1}}
+\newcommand{\bluetext}[1]{{\color{blue} #1}}
+\newcommand{\redtext}[1]{{\color{red} #1}}
+
+\DeclareMathOperator{\tr}{tr}
+%###################################%
+
+% MW settings
+%###################################%
+
+%\newcommand{\dlt}{\bm{\delta_{u}}}
+%\newcommand{\corr}{\bm{{v}}}
+
+\newcommand{\fem}[1]{\mbox{\bf \texttt{#1}}}
+
+\newcommand{\dlt}{\, \delta {\bfm{u}}}
+\newcommand{\corr}{  \,\Delta \bfm{u}\, }
+% \newcommand{\resultFE}{  \, \bfm{w}\, }
+\newcommand{\testFunc}{\bm{\phi}_i}
+\newcommand{\inputFE}{\bfm{v}}
+\newcommand{\currFE}{\, \bar{ \bfm{u}}\, }
+
+%\newcommand{\currReal}{\, \bar{ \mathsf{u}}\, }
+%\newcommand{\corrReal}{  \,\Delta \mathsf{u}\, }
+%\newcommand{\resultReal}{  \, \mathsf{w}\, }
+%\newcommand{\inputReal}{\mathsf{v}}
+\newcommand{\currReal}{\bar{ \fem{U}}}
+\newcommand{\corrReal}{\Delta \fem{U}}
+\newcommand{\resultReal}{\fem{W}}
+\newcommand{\inputReal}{\fem{V}}
+
+\newcommand{\scalar }{\texttt{scalar}\xspace}
+\newcommand{\scalarRef}{\texttt{scalar\_ref}\xspace}
+\newcommand{\tensorS}{\texttt{tensor4}\xspace}
+\newcommand{\pade}{\texttt{Pade log}\xspace}
+
+\newcommand{\none}{\texttt{ADrecompute}\xspace}
+\newcommand{\tensorAD}{\texttt{ADstore}\xspace}
+\newcommand{\tensorFAST}{\texttt{tensor2}\xspace}
+\newcommand{\scalarCurr}{\texttt{scalar}\xspace}
+
+\newcommand{\crap}{\texttt{naive\_AD}\xspace}
+
+\newcommand{\noneSplit}{\texttt{ADrecompute}\xspace}
+\newcommand{\tensorADsplit}{\texttt{ADstore}\xspace}
+
+\newcommand{\gz}{\mathbf{g}}
+
+%\newcommand{\Grad}{\nabla}
+%\newcommand{\grad}{\nabla}
+\DeclareMathOperator{\Grad}{Grad}
+\DeclareMathOperator{\grad}{grad}
+\newcommand{\grads}{\grad^{\rm s}\!}
+%###################################%
+%
+
+\usepackage{graphicx} % Required for inserting images
+
+% \newcommand{\revOld}[1]{}
+% \newcommand{\revNew}[1]{{{#1}}}
+\newcommand{\revNew}[1]{{\color{blue}{#1}}}   % only in original submission
+\newcommand{\revOld}[1]{\sout{\protect\color{red}{#1}}}  % only in rev 1
+
+%% TEMPORARY - until we learn how to make lower-case \mathbb...
+% \newcommand{\bbc}{{\rm c}\hspace{-0.25em}{\rm c}}
+%lowercase blackboard characters :)
+\usepackage{bbm}
+\newcommand{\bbc}{\mathbbm{c}}
+
+\newcommand{\cNH}{\textit{cNH}\xspace}
+\newcommand{\sNH}{\textit{sNH}\xspace}
+
+\DeclareRobustCommand{\mmodels}{\mathrel{||}\joinrel \Relbar}
+
+\usepackage{amsmath} % Good practice for math
+\usepackage{amssymb} % Provides \models
+\usepackage{bm}      % Provides \bm for better bold math
+\usepackage{graphicx} % Provides \scalebox
+
+% --- Optional: Define a custom command ---
+% Choose one definition based on your preferred method/size
+% Method 1: Using scalebox (adjust 0.8 to your desired size factor)
+\newcommand{\smbldmodels}{\mathrel{\scalebox{0.8}{\bm{\models}}}}
+
+\usepackage{graphicx} % Required for inserting images
+% \usepackage[hidelinks]{hyperref}
+
+% simple change-tracking commands for revision rounds
+\usepackage{xcolor} % safe lightweight color support
+
+\definecolor{rev@add}{RGB}{0,0,250}   % blue for additions
+\definecolor{rev@del}{RGB}{150,0,0}   % red for deletions
+\definecolor{rev@note}{RGB}{120,0,120}% purple for notes
+
+\newif\ifshowchanges
+	% \showchangestrue
+	\showchangesfalse  % to hide markup and produce "clean" text
+
+	% \add{new text}          -> shows new text in blue (or plain text when hidden)
+	% \del{old text}          -> shows old text struck out in red (or nothing when hidden)
+	% \chg{old}{new}         -> shows old struck out in red followed by new in blue (or only new when hidden)
+	% \revnote{note text}     -> small inline purple note (hidden when markup off)
+	\newcommand{\add}[1]{\ifshowchanges\textcolor{rev@add}{#1}\else#1\fi}
+	\newcommand{\del}[1]{\ifshowchanges\textcolor{rev@del}{\sout{#1}}\else\relax\fi}
+	\newcommand{\chg}[2]{\ifshowchanges\textcolor{rev@del}{\sout{#1}}\ \textcolor{rev@add}{#2}\else#2\fi}
+	\newcommand{\revnote}[1]{\ifshowchanges{\footnotesize\textcolor{rev@note}{[#1]}}\fi}
+
+% quick toggles
+% use \showchangesfalse to compile final clean version
+% use \showchangestrue to show markup
+
+\newcommand{\modelsSym}{\mathrel{\scriptstyle\bm{\models}}}
+% Turnstile symbol (⊢) as a proper math relation
+\newcommand{\turnstile}{\mathrel{\vdash}}
+
+% Optional aliases / helper
+\newcommand{\proves}{\turnstile}
+\newcommand{\judgment}[2]{#1\ \turnstile\ #2}
