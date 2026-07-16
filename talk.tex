@@ -48,7 +48,7 @@
 \usepackage{multicol}
 \usepackage{tikz}
 \usepackage{color}
-\usetikzlibrary{calc,positioning}
+\usetikzlibrary{calc,positioning,arrows.meta,shapes.geometric}
 
 % transfer operator shorthands (from the papers' shared macros)
 \newcommand{\resth}[1]{\mathcal R_{#1}}
@@ -103,10 +103,9 @@
 
 \begin{frame}{Setting: high-order FEM + geometric multigrid}
     \begin{itemize}
-        \item Poisson-type problems, $\mathbb Q_p$ tensor-product elements, mesh hierarchy
-              $\mesh_1 \sqsubset \dots \sqsubset \mesh_L$
-        \item Matrix-free operator evaluation with sum factorization:
-              $\mathcal O(p^{d+1})$ work, $\mathcal O(p^d)$ memory
+        \item Poisson-type problems, $\mathbb Q_p$ tensor-product elements, mesh hierarchy $\mesh_1 \sqsubset \dots \sqsubset
+                  \mesh_L$
+        \item Matrix-free operator evaluation with sum factorization: $\mathcal O(p^{d+1})$ work, $\mathcal O(p^d)$ memory
         \item Multigrid V-cycle needs a \alert{smoother} on every level
     \end{itemize}
     \vfill
@@ -297,8 +296,8 @@
             \begin{itemize}
                 \item Transfers: tensorized $L^2$ projections,\\ $\mathcal O(p^{d+1})$ via sum factorization
                 \item Level operators: matrix-free,\\ evaluated on lower-degree basis
-                \item Smoother: damped Jacobi\\
-                      (or fast diagonalization of the\\ \emph{reference} patch as preconditioner:\\ the ``Cartesian-reinforced'' smoother)
+                \item Smoother: damped Jacobi\\ (or fast diagonalization of the\\ \emph{reference} patch as preconditioner:\\ the
+                      ``Cartesian-reinforced'' smoother)
             \end{itemize}
         \end{column}
         \begin{column}{0.45\textwidth}
@@ -351,9 +350,10 @@
     \end{table}
     \begin{itemize}
         \item Essentially \alert{p-robust}, even at 25--30\% distortion
-        \item One inexact local V-cycle $\approx$ exact local solves
-              {\small (a perturbation theorem with explicit constants says why)}
-        \item Reference: cell-wise additive smoother [Witte et al.\ '21], $p=15$, $\delta=25\%$: \alert{66 iterations} in 2D, \alert{80} in 3D
+        \item One inexact local V-cycle $\approx$ exact local solves {\small (a perturbation theorem with explicit constants says
+                      why)}
+        \item Reference: cell-wise additive smoother [Witte et al.\ '21], $p=15$, $\delta=25\%$: \alert{66 iterations} in 2D,
+              \alert{80} in 3D
     \end{itemize}
 \end{frame}
 
@@ -372,13 +372,13 @@
                 \vspace{-0.5em}
                 \begin{tabular}{rl|ccc}
                     \toprule
-                    $d$ & $p\setminus L$ & 2                 & 3  & 4  \\
+                    $d$ & $p\setminus L$ & 2                          & 3  & 4  \\
                     \midrule
-                        & 3              & 16 \,(54)         & 15 & 13 \\
-                    2   & 7              & 13 \,(78)         & 14 & 14 \\
-                        & 15             & 19 \,(90)         & 15 & 13 \\
+                        & 3              & 16 \,(54)                  & 15 & 13 \\
+                    2   & 7              & 13 \,(78)                  & 14 & 14 \\
+                        & 15             & 19 \,(90)                  & 15 & 13 \\
                     \midrule
-                        & 3              & 18 \,(102)        & 18 & 16 \\
+                        & 3              & 18 \,(102)                 & 18 & 16 \\
                     3   & 7              & \alert{15} \,(\alert{158}) & 17 & 17 \\
                     \bottomrule
                 \end{tabular}
@@ -404,14 +404,14 @@
         \small
         \begin{tabular}{lccc}
             \toprule
-            \textbf{Local solver}          & \textbf{Rel.\ time} & \textbf{Rel.\ FLOPs} & \textbf{GFLOP/s} \\
+            \textbf{Local solver}         & \textbf{Rel.\ time} & \textbf{Rel.\ FLOPs} & \textbf{GFLOP/s} \\
             \midrule
-            V-cycle (Jacobi)               & 3.39                & 2.27                 & 15.1             \\
-            \alert{Half V-cycle (Jacobi)}  & \alert{2.01}        & 1.17                 & 13.2             \\
-            V-cycle (Cart.-reinforced)     & 8.68                & 3.67                 & 9.59             \\
-            Half V-cycle (Cart.-reinf.)    & 4.67                & 1.87                 & 9.08             \\
+            V-cycle (Jacobi)              & 3.39                & 2.27                 & 15.1             \\
+            \alert{Half V-cycle (Jacobi)} & \alert{2.01}        & 1.17                 & 13.2             \\
+            V-cycle (Cart.-reinforced)    & 8.68                & 3.67                 & 9.59             \\
+            Half V-cycle (Cart.-reinf.)   & 4.67                & 1.87                 & 9.08             \\
             \midrule
-            Fast diagonalization           & 2.60                & \alert{0.68}         & 5.95             \\
+            Fast diagonalization          & 2.60                & \alert{0.68}         & 5.95             \\
             \bottomrule
         \end{tabular}
     \end{table}
@@ -435,7 +435,8 @@
     \vspace{-0.5em}
     \begin{itemize}
         \small
-        \item On fine meshes the smoother costs $\lesssim 8\times Au$: patch-local work is cache-resident while global $Au$ is memory-bound
+        \item On fine meshes the smoother costs $\lesssim 8\times Au$: patch-local work is cache-resident while global $Au$ is
+              memory-bound
         \item Vertex-patch robustness at (nearly) block-Jacobi cost
     \end{itemize}
 \end{frame}
@@ -443,8 +444,10 @@
 \begin{frame}{So we won\dots\ right?}
     What the measurements actually say:
     \begin{itemize}
-        \item The kernels run at high GFLOP/s, but the \alert{gather/scatter} into global vectors and geometry data dominates on general meshes
-        \item Global operator evaluation is \alert{memory-bandwidth-bound}; the smoother wins partly because the library's global loop is not optimal
+        \item The kernels run at high GFLOP/s, but the \alert{gather/scatter} into global vectors and geometry data dominates on
+              general meshes
+        \item Global operator evaluation is \alert{memory-bandwidth-bound}; the smoother wins partly because the library's global
+              loop is not optimal
         \item Fixed overheads (data reshuffling, synchronization) cap further gains
     \end{itemize}
     \vfill
@@ -464,8 +467,7 @@
 \begin{frame}{Rewrite assumptions: what modern hardware wants}
     \textbf{Target: GPUs} (A100: 1.7\,TB/s DRAM, fp64 tensor cores)
     \begin{itemize}
-        \item Nominal bandwidth attainable \alert{only} with \emph{coalesced} access:
-              a warp must read consecutive words
+        \item Nominal bandwidth attainable \alert{only} with \emph{coalesced} access: a warp must read consecutive words
         \item An uncoalesced gather fetches a whole cache line per useful word
     \end{itemize}
     \vfill
@@ -474,7 +476,7 @@
         \\ Indirect addressing on \emph{every} operator application.
     \end{block}
     \vfill
-    \begin{block}{Our answer: make the \emph{cell-wise} vector the persistent storage}
+    \begin{block}{My answer: make the \emph{cell-wise} vector the persistent storage}
         \begin{itemize}
             \item DoFs duplicated across element interfaces --- DG-like storage for CG
             \item Every access coalesced; no read-accumulate, no atomics
@@ -505,10 +507,47 @@
     \end{block}
     \begin{itemize}
         \small
-        \item CG/FGMRES written so every inner product pairs one primal with one dual
-              $\Rightarrow$ \alert{no assembly, no communication in the Krylov loop};
-              provably identical iterates to the classical assembled solver
+        \item CG/FGMRES written so every inner product pairs one primal with one dual $\Rightarrow$ \alert{no assembly, no
+                  communication in the Krylov loop}; provably identical iterates to the classical assembled solver
         \item Only the preconditioner bridges the spaces (one DSS inside it)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Direct stiffness summation without indirection}
+    \begin{center}
+        \resizebox{0.98\textwidth}{!}{\input{figures/fig_dss_propagation.tex}}
+    \end{center}
+    \vspace{0.5em}
+    \begin{itemize}
+        \item No atomics, no coloring, no index lists --- every access coalesced
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{DSS is (almost) pure memory traffic}
+    DSS carries essentially \alert{no arithmetic}: gather, sum, scatter.
+    The only honest metric is \alert{achieved memory throughput} (A100, fp64, $128^3$ mesh):
+    \begin{table}
+        \centering
+        \small
+        \begin{tabular}{llccccccc}
+            \toprule
+            \multicolumn{2}{l}{} &                 & $p=1$ & $p=2$        & $p=3$ & $p=5$ & $p=7$                \\
+            \midrule
+            \multirow{2}{*}{Structured}
+                                 & GDoF/s (unique) &       & 3.9          & 13.9  & 26.8  & 54.0  & 81.1         \\
+                                 & GB/s            &       & \alert{1686} & 1623  & 1605  & 1561  & \alert{1538} \\
+            \midrule
+            \multirow{2}{*}{Unstructured}
+                                 & GDoF/s (unique) &       & 3.9          & 12.9  & 21.4  & 38.2  & 59.2         \\
+                                 & GB/s            &       & 1178         & 1277  & 1055  & 943   & 976          \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \begin{itemize}
+        \item Structured path: $\approx 80\%$ of peak DRAM bandwidth, flat across all degrees
+        \item Unstructured path (general indirection): plateaus near $60\%$
+        \item Throughput per DoF \emph{improves} with $p$: interface DoFs get diluted --- the trade-off relaxes exactly in the
+              high-order regime we target
     \end{itemize}
 \end{frame}
 
@@ -519,13 +558,13 @@
         \footnotesize
         \begin{tabular}{l ccccccc}
             \toprule
-                                        & $\mathbb{Q}_1$ & $\mathbb{Q}_2$ & $\mathbb{Q}_3$ & $\mathbb{Q}_4$ & $\mathbb{Q}_5$ & $\mathbb{Q}_6$ & $\mathbb{Q}_7$ \\
+                                       & $\mathbb{Q}_1$ & $\mathbb{Q}_2$ & $\mathbb{Q}_3$ & $\mathbb{Q}_4$ & $\mathbb{Q}_5$ & $\mathbb{Q}_6$ & $\mathbb{Q}_7$ \\
             \midrule
-            GDoF/s (unique)             & 14.1           & 32.4           & 42.4           & 37.9           & 37.9           & 39.5           & 59.6           \\
-            Memory throughput [GB/s]    & 1751           & 1727           & 1628           & 1219           & 1044           & 999            & 1421           \\
+            GDoF/s (unique)            & 14.1           & 32.4           & 42.4           & 37.9           & 37.9           & 39.5           & 59.6           \\
+            Memory throughput [GB/s]   & 1751           & 1727           & 1628           & 1219           & 1044           & 999            & 1421           \\
             \midrule
-            theory TFLOP/s              & \alert{2.81}   & \alert{3.15}   & \alert{5.58}   & \alert{5.14}   & \alert{5.48}   & \alert{6.12}   & \alert{9.95}   \\
-            CUDA reference$^*$ TFLOP/s  & ---            & 1.30           & 1.32           & 2.02           & 2.21           & 1.90           & 1.90           \\
+            theory TFLOP/s             & \alert{2.81}   & \alert{3.15}   & \alert{5.58}   & \alert{5.14}   & \alert{5.48}   & \alert{6.12}   & \alert{9.95}   \\
+            CUDA reference$^*$ TFLOP/s & ---            & 1.30           & 1.32           & 2.02           & 2.21           & 1.90           & 1.90           \\
             \bottomrule
         \end{tabular}
         \caption*{\footnotesize $^*$hand-written CUDA kernels of Cui et al.\ 2025}
@@ -533,30 +572,41 @@
     \begin{itemize}
         \item Runs at the \alert{memory roofline}: exactly 2 doubles (1 read + 1 write) per DoF
         \item Useful-work rate exceeds the CUDA reference \alert{at every degree}
-        \item Full assembled operator (apply + DSS) beats \alert{libCEED BP1} on the same device,
-              $1.6\times$ at $p=1$ up to $4.4\times$ at $p=5$
+        \item Full assembled operator (apply + DSS) beats \alert{libCEED BP1} on the same device, $1.6\times$ at $p=1$ up to
+              $4.4\times$ at $p=5$
     \end{itemize}
 \end{frame}
 
 \begin{frame}{Multigrid on top: hanging nodes for free}
     Geometric multigrid on adaptive meshes, cell-wise storage (companion paper):
-    \begin{columns}[T]
-        \begin{column}{0.62\textwidth}
-            \begin{itemize}
-            \small
-            \item Classically: explicit constraint matrix $C_{HN}$, edge operators, special transfers
-                  [Janssen \& Kanschat '11]
-            \item Cell-wise: the constraint is \emph{absorbed} into the primal--dual structure ---
-                  $C_{HN} \mathcal P = \mathcal P$, so it \alert{resolves into an identity} in the transfer
-            \item Level-wise masking + DSS is all that remains; provably equivalent to the classical
-                  local V-cycle
-            \item \alert{DSS across hanging nodes: never needed}
-            \item Flexible CG $\Rightarrow$ smoothers may run in \alert{reduced precision} (bytes, again)
-            \end{itemize}
+    \begin{itemize}
+        \item Classically: explicit hanging-node constraint matrix $C_{HN}$, edge operators, special transfer handling [Janssen \&
+                      Kanschat '11]
+        \item Cell-wise: the constraint is \emph{absorbed} into the primal--dual structure --- $C_{HN} \mathcal P = \mathcal P$, so
+              it \alert{resolves into an identity} in the transfer
+        \item Level-wise masking + DSS is all that remains; provably equivalent to the classical local V-cycle, iterate by iterate
+        \item \alert{DSS across hanging nodes: never needed}
+        \item Flexible CG $\Rightarrow$ smoothers may run in \alert{reduced precision} (bytes, again)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{The operators at the roofline}
+    \begin{columns}[c]
+        \begin{column}{0.56\textwidth}
+            \centering
+            {\footnotesize \input{figures/fig_roofline.tex}}
+
+            \vspace{0.2em}
+            {\footnotesize Laplace and mass operator, $p=1,\dots,7$ (A100, fp64)}
         \end{column}
-        \begin{column}{0.36\textwidth}
-            \includegraphics[width=\textwidth]{figures/coarse_grid.png}
-            \\ {\footnotesize Curved production-like mesh: DSS within a few \% of the structured ceiling}
+        \begin{column}{0.42\textwidth}
+            \begin{itemize}
+                \small
+                \item The design goal is not ``being memory-bound'' --- it is \alert{using the full bandwidth so the compute runs at peak}
+                \item The achievement: \alert{high TFLOP/s} --- the Laplace operator rides the roofline past the CUDA-core ceiling, into
+                      \alert{tensor-core territory}
+                \item We transfer \emph{more} data than an assembled solver --- and it does not hit us
+            \end{itemize}
         \end{column}
     \end{columns}
 \end{frame}
@@ -589,11 +639,11 @@
     Things this line of work has managed to beat:
     \begin{itemize}
         \item[\checkmark] \textbf{Fast diagonalization} --- half V-cycle Jacobi is faster on CPU,
-            despite $1.7\times$ the FLOPs
+              despite $1.7\times$ the FLOPs
         \item[\checkmark] \textbf{Exact patch solvers} --- 15 vs 158 iterations on 3D Kershaw
-            [Brubeck \& Farrell '21]; 66--80 vs $\sim$10 [Witte et al.\ '21]
+                  [Brubeck \& Farrell '21]; 66--80 vs $\sim$10 [Witte et al.\ '21]
         \item[\checkmark] \textbf{Hand-written CUDA FEM kernels} --- Laplace useful-work throughput
-            above Cui et al.\ at every degree
+              above Cui et al.\ at every degree
         \item[\checkmark] \textbf{libCEED BP1} --- full assembled operator up to $4.4\times$ faster on the same A100
         \item[\checkmark] \textbf{cuBLAS} --- on small fp64 MMA shapes, with a compiler patch written in the process
         \item[\checkmark] \textbf{Hanging nodes} --- eliminated by algebra, not by code
@@ -605,11 +655,10 @@
 
 \begin{frame}{Conclusions}
     \begin{itemize}
-        \item Patch smoothers are worth it --- if the local solve is cheap.
-              \alert{Multigrid-within-multigrid} makes it cheap, matrix-free, and robust
-              (p- and h-robust, distorted meshes, coefficient jumps)
-        \item On modern hardware, \alert{bytes beat FLOPs}: iterative local solvers outrun
-              direct ones, and cell-wise storage outruns assembled pipelines
+        \item Patch smoothers are worth it --- if the local solve is cheap. \alert{Multigrid-within-multigrid} makes it cheap,
+              matrix-free, and robust (p- and h-robust, distorted meshes, coefficient jumps)
+        \item On modern hardware, \alert{bytes beat FLOPs}: iterative local solvers outrun direct ones, and cell-wise storage outruns
+              assembled pipelines
               \begin{itemize}
                   \item primal--dual pairing identity $\Rightarrow$ communication-free Krylov
                   \item hanging nodes resolve into identity constraints
