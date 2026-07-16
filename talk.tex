@@ -431,12 +431,13 @@
 \begin{frame}{Performance: full smoother on 32 cores}
     \small
     Wall-clock time of one smoother sweep relative to one global matrix-free $Au$
-    (each cell sits in $2^d = 8$ patches $\Rightarrow$ naive lower bound $8\times Au$).
+    % (each cell sits in $2^d = 8$ patches $\Rightarrow$ naive lower bound $8\times Au$).
+    \\
     Left: Cartesian, right: distorted.
     \par
     \normalsize
     \begin{center}
-        \resizebox{0.74\textwidth}{!}{\input{figures/threads_timing.tex}}
+        \resizebox{0.9\textwidth}{!}{\input{figures/threads_timing.tex}}
     \end{center}
     \vspace{-0.5em}
     \begin{itemize}
@@ -461,8 +462,8 @@
         \centering
         Do we fix a 500\,000-line legacy FEM library\dots\ or rewrite from scratch?
         \\[0.5em]
-        \pause
-        {\large Obvious choice: \alert{rewrite.}}
+
+        {\large Obvious choice. \pause\alert{Rewrite.}}
     \end{alertblock}
 \end{frame}
 
@@ -471,7 +472,7 @@
 % ===========================================================================
 
 \begin{frame}{Rewrite assumptions: what modern hardware wants}
-    \textbf{Target: GPUs} (A100: 2 \,TB/s DRAM, fp64 tensor cores)
+    \textbf{Target: GPUs} (A100: 2\,TB/s DRAM, fp64 tensor cores)
     \begin{itemize}
         \item Nominal bandwidth attainable \alert{only} with \emph{coalesced} access: a warp must read consecutive words
         \item An uncoalesced gather fetches a whole cache line per useful word
