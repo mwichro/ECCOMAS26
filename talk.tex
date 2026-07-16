@@ -343,10 +343,10 @@
             {\scriptsize $\delta = 35\%$}
         \end{column}
         \begin{column}{0.78\textwidth}
-            {\footnotesize GMRES iterations, geometric MG, Cartesian-reinforced local smoother,
-                \alert{one} local p-MG V-cycle (parentheses: nearly exact local solve, $N_{\text{MG}}=25$):}
             \begin{table}
                 \centering
+                \caption{GMRES iterations, geometric MG, Cartesian-reinforced local smoother, \alert{one} local p-MG
+                    V-cycle (parentheses: nearly exact local solve, $N_{\text{MG}}=25$)}
                 \vspace{-0.2em}
                 \footnotesize
                 \setlength{\tabcolsep}{4pt}
@@ -380,21 +380,21 @@
             \includegraphics[width=0.9\textwidth]{figures/kershaw3D.pdf}
         \end{column}
         \begin{column}{0.68\textwidth}
-            {\small GMRES iterations, Jacobi local smoother, $N_{\text{MG}}=1$\\
-                (parentheses: Brubeck \& Farrell '21, exact patch solves)}
             \begin{table}
+                \caption{GMRES iterations, Jacobi local smoother, $N_{\text{MG}}=1$ (parentheses: Brubeck \& Farrell
+                    '21, exact patch solves)}
                 \footnotesize
                 \vspace{-0.5em}
                 \begin{tabular}{rl|ccc}
                     \toprule
-                    $d$ & $p\setminus L$ & 2                          & 3  & 4  \\
+                       & $p\setminus L$ & 2                          & 3  & 4  \\
                     \midrule
-                        & 3              & 16 \,(54)                  & 15 & 13 \\
-                    2   & 7              & 13 \,(78)                  & 14 & 14 \\
-                        & 15             & 19 \,(90)                  & 15 & 13 \\
+                       & 3              & 16 \,(54)                  & 15 & 13 \\
+                    2D & 7              & 13 \,(78)                  & 14 & 14 \\
+                       & 15             & 19 \,(90)                  & 15 & 13 \\
                     \midrule
-                        & 3              & 18 \,(102)                 & 18 & 16 \\
-                    3   & 7              & \alert{15} \,(\alert{158}) & 17 & 17 \\
+                       & 3              & 18 \,(102)                 & 18 & 16 \\
+                    3D & 7              & \alert{15} \,(\alert{158}) & 17 & 17 \\
                     \bottomrule
                 \end{tabular}
                 \vspace{-0.5em}
@@ -446,9 +446,9 @@
 % ===========================================================================
 
 \begin{frame}{Performance: local solver strategies (CPU)}
-    Single Cartesian patch, $p=7$, normalized by one patch operator application $Au$:
     \begin{table}
         \centering
+        \caption{Single Cartesian patch, $p=7$, normalized by one patch operator application $Au$}
         \small
         \begin{tabular}{lccc}
             \toprule
@@ -464,8 +464,8 @@
         \end{tabular}
     \end{table}
     \begin{itemize}
-        \item Half V-cycle Jacobi is \alert{faster than fast diagonalization} (2.01 vs 2.60) \dots
-        \item \dots while doing \alert{$1.7\times$ more FLOPs}: throughput beats operation count
+        \item Half V-cycle Jacobi is \alert{faster than fast diagonalization}
+        \item  while doing \alert{$1.7\times$ more FLOPs}: throughput beats operation count
         \item FLOPs are cheap; memory traffic is not --- a recurring theme today
     \end{itemize}
 \end{frame}
@@ -574,9 +574,10 @@
 
 \begin{frame}{DSS is (almost) pure memory traffic}
     DSS carries essentially \alert{no arithmetic}: gather, sum, scatter.
-    The only metric is \alert{achieved memory throughput} (A100, fp64, $128^3$ mesh):
+    The only metric is \alert{achieved memory throughput}.
     \begin{table}
         \centering
+        \caption{Achieved memory throughput (A100, fp64, $128^3$ mesh)}
         \small
         \begin{tabular}{llccccccc}
             \toprule
@@ -594,16 +595,15 @@
     \end{table}
     \begin{itemize}
         \item Structured path: $\approx 80\%$ of peak DRAM bandwidth, flat across all degrees
-        \item Unstructured path (general indirection): plateaus near $60\%$
-        \item Throughput per DoF \emph{improves} with $p$: interface DoFs get diluted --- the trade-off relaxes exactly in the
-              high-order regime we target
+              % \item Unstructured path (general indirection): plateaus near $60\%$
+        \item Throughput per DoF \emph{improves} with $p$: interface DoFs get diluted
     \end{itemize}
 \end{frame}
 
 \begin{frame}{Results: operator throughput (A100, fp64)}
-    Laplace operator, cell-wise storage, sum-factorized, degrees $p=1,\dots,7$:
     \begin{table}
         \centering
+        \caption{Laplace operator, cell-wise storage, sum-factorized, degrees $p=1,\dots,7$}
         \footnotesize
         \begin{tabular}{l ccccccc}
             \toprule
@@ -637,9 +637,9 @@
         \item Level-wise masking + DSS is all that remains; \alert{DSS across hanging nodes: never needed}
     \end{itemize}
     \vfill
-    Full solve throughput (Cartesian mesh, $p=3$, fp64, A100):
     \begin{table}
         \centering
+        \caption{Full solve throughput (Cartesian mesh, $p=3$, fp64, A100)}
         \small
         \vspace{-0.5em}
         \begin{tabular}{lcc}
@@ -682,10 +682,10 @@
 \end{frame}
 
 \begin{frame}{Implementation: Triton}
-    The \emph{entire} solver stack is written in \alert{Triton}: a Python-embedded tile language for GPU kernels
+    The \emph{entire} solver stack is written in \alert{Triton}
     \begin{itemize}
+        \item Python compiled directly to assembly on NVIDIA \emph{and} AMD
         \item You write tile-level operations; the compiler handles registers, shared memory, coalescing
-        \item Dozens of lines of Python where CUDA needs hundreds --- and it runs on NVIDIA \emph{and} AMD
         \item Sum-factorized 1D contractions map onto tensor-core (MMA) tiles
     \end{itemize}
     \vfill
