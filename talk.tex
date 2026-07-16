@@ -471,7 +471,7 @@
 % ===========================================================================
 
 \begin{frame}{Rewrite assumptions: what modern hardware wants}
-    \textbf{Target: GPUs} (A100: 1.7\,TB/s DRAM, fp64 tensor cores)
+    \textbf{Target: GPUs} (A100: 2 \,TB/s DRAM, fp64 tensor cores)
     \begin{itemize}
         \item Nominal bandwidth attainable \alert{only} with \emph{coalesced} access: a warp must read consecutive words
         \item An uncoalesced gather fetches a whole cache line per useful word
