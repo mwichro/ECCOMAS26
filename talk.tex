@@ -68,6 +68,9 @@
 \setbeamercolor{block title}{fg=white,bg=structure.fg}
 \setbeamercolor{block body}{fg=red!10!black,bg=gray!20}
 \setbeamertemplate{block}[shadow=true, rounded=true]
+% captions without any "Table N:" label, keeping the caption font style
+\usepackage{caption}
+\captionsetup{labelformat=empty, labelsep=none}
 
 \titlegraphic{
     \includegraphics[width=3cm]{Heidelberg.jpeg}}
@@ -324,43 +327,49 @@
 \end{frame}
 
 \begin{frame}{Does it survive ugly patches?}
-    \begin{center}
-        \resizebox{0.8\textwidth}{!}{\input{figures/patch_def.tex}}
-    \end{center}
-    \begin{itemize}
-        \item Random vertex displacement $\delta h$; up to near-degenerate cells (angles $\to 180^\circ$)
-        \item Structured (top) and simplicial/unstructured (bottom) patches
-        \item Jacobi variant: geometry-agnostic, mild growth with distortion
-        \item Cartesian-reinforced: superb near-Cartesian, sensitive to heavy 3D distortion
-    \end{itemize}
-\end{frame}
-
-\begin{frame}{Iteration counts: the full multigrid solver}
-    GMRES iterations, geometric MG preconditioner, Cartesian-reinforced local smoother,
-    \alert{one} local p-MG V-cycle (in parentheses: nearly exact local solve, $N_{\text{MG}}=25$):
-    \begin{table}
-        \centering
-        \small
-        \vspace{-0.5em}
-        \begin{tabular}{l|cccc|cccc}
-            \toprule
-                                & \multicolumn{4}{c|}{2D} & \multicolumn{4}{c}{3D}                                                   \\
-            $p\setminus \delta$ & 0\%                     & 10\%                   & 25\%  & 35\%    & 0\%   & 10\%  & 25\%  & 30\%  \\
-            \midrule
-            3                   & 4 (4)                   & 5 (5)                  & 6 (6) & 8 (7)   & 5 (4) & 5 (4) & 6 (5) & 6 (5) \\
-            7                   & 3 (3)                   & 5 (5)                  & 6 (6) & 9 (7)   & 4 (3) & 4 (4) & 5 (5) & 6 (5) \\
-            15                  & 3 (3)                   & 5 (5)                  & 6 (6) & --- (7) & 4 (3) & 4 (4) & 5 (5) & 6 (5) \\
-            \bottomrule
-        \end{tabular}
-        \vspace{-0.5em}
-    \end{table}
-    \begin{itemize}
-        \item Essentially \alert{p-robust}, even at 25--30\% distortion
-        \item One inexact local V-cycle $\approx$ exact local solves {\small (a perturbation theorem with explicit constants says
-                      why)}
-        \item Reference: cell-wise additive smoother [Witte et al.\ '21], $p=15$, $\delta=25\%$: \alert{66 iterations} in 2D,
-              \alert{80} in 3D
-    \end{itemize}
+    \begin{columns}[T]
+        \begin{column}{0.22\textwidth}
+            \centering
+            \begin{tikzpicture}[scale=1.0]
+                \begin{axis}[axis equal image, hide axis, width=\textwidth, enlargelimits=0.05]
+                    \addplot[black, thick, mark=none] table {figures/patch_def_data/patch035_2D.gp};
+                \end{axis}
+            \end{tikzpicture}\\[1.0em]
+            \begin{tikzpicture}[scale=1.0]
+                \begin{axis}[axis equal image, hide axis, width=\textwidth, enlargelimits=0.05]
+                    \addplot[black, mark=none] table {figures/patch_def_data/simplex035_2D.gp};
+                \end{axis}
+            \end{tikzpicture}\\[0.3em]
+            {\scriptsize $\delta = 35\%$}
+        \end{column}
+        \begin{column}{0.78\textwidth}
+            {\footnotesize GMRES iterations, geometric MG, Cartesian-reinforced local smoother,
+                \alert{one} local p-MG V-cycle (parentheses: nearly exact local solve, $N_{\text{MG}}=25$):}
+            \begin{table}
+                \centering
+                \vspace{-0.2em}
+                \footnotesize
+                \setlength{\tabcolsep}{4pt}
+                \begin{tabular}{l|cccc|cccc}
+                    \toprule
+                                        & \multicolumn{4}{c|}{2D} & \multicolumn{4}{c}{3D}                                                   \\
+                    $p\setminus \delta$ & 0\%                     & 10\%                   & 25\%  & 35\%    & 0\%   & 10\%  & 25\%  & 30\%  \\
+                    \midrule
+                    3                   & 4 (4)                   & 5 (5)                  & 6 (6) & 8 (7)   & 5 (4) & 5 (4) & 6 (5) & 6 (5) \\
+                    7                   & 3 (3)                   & 5 (5)                  & 6 (6) & 9 (7)   & 4 (3) & 4 (4) & 5 (5) & 6 (5) \\
+                    15                  & 3 (3)                   & 5 (5)                  & 6 (6) & --- (7) & 4 (3) & 4 (4) & 5 (5) & 6 (5) \\
+                    \bottomrule
+                \end{tabular}
+                \vspace{-0.2em}
+            \end{table}
+            \begin{itemize}
+                \footnotesize
+                \item Essentially \alert{p-robust}, even at 25--30\% distortion
+                \item One inexact local V-cycle $\approx$ exact local solves {\small (perturbation theorem with explicit constants says why)}
+                \item Reference [Witte et al.\ '21], $p=15$, $\delta=25\%$: \alert{66} iters in 2D, \alert{80} in 3D
+            \end{itemize}
+        \end{column}
+    \end{columns}
 \end{frame}
 
 \begin{frame}{Iteration counts: Kershaw meshes}
@@ -394,6 +403,39 @@
                 \small
                 \item p-robust \emph{and} h-robust: iterations \emph{decrease} with more levels $L$
                 \item Inexact, iterative local solves beat exact patch factorizations by $10\times$
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Going indefinite: Stokes}
+    % \vfill
+    \begin{columns}[T]
+        \begin{column}{0.55\textwidth}
+
+            \begin{table}
+                \caption{FGMRES iterations, 2D, $L=4$}
+                \centering
+                \footnotesize
+                \begin{tabular}{ll|cccc}
+                    \toprule
+                    $p$ & Local solver    & 0\% & 10\% & 25\% & 35\% \\
+                    \midrule
+                    3   & Braess--Sarazin & 6   & 7    & 8    & 10   \\
+                        & Exact           & 6   & 7    & 8    & 9    \\
+                    \midrule
+                    7   & Braess--Sarazin & 8   & 8    & 10   & 12   \\
+                        & Exact           & 5   & 6    & 7    & 8    \\
+                    \bottomrule
+                \end{tabular}
+            \end{table}
+        \end{column}
+        \begin{column}{0.45\textwidth}
+            \begin{itemize}
+                \small
+                \item \alert{One} Braess--Sarazin step $\approx$ exact local solve
+                \item $10^6$ viscosity contrast: same iteration counts
+                \item Same matrix-free machinery, one level down
             \end{itemize}
         \end{column}
     \end{columns}
