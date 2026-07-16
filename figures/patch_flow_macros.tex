@@ -1,0 +1,22 @@
+\newcommand{\drawBoundaryDoFs}[2][dof]{
+        % Bottom edge (eta = 0)
+        \foreach \xi in {0, 0.33, 0.66, 1} {
+                \coordinate (pt) at ($(#2.south west)!\xi!(#2.south east)$);
+                \node[#1] at (pt) {};
+            }
+        % Top edge (eta = 1)
+        \foreach \xi in {0, 0.33, 0.66, 1} {
+                \coordinate (pt) at ($(#2.north west)!\xi!(#2.north east)$);
+                \node[#1] at (pt) {};
+            }
+        % Left edge, excluding corners (xi = 0, eta = 0.33, 0.66)
+        \foreach \eta in {0.33, 0.66} {
+                \coordinate (pt) at ($(#2.south west)!\eta!(#2.north west)$);
+                \node[#1] at (pt) {};
+            }
+        % Right edge, excluding corners (xi = 1, eta = 0.33, 0.66)
+        \foreach \eta in {0.33, 0.66} {
+                \coordinate (pt) at ($(#2.south east)!\eta!(#2.north east)$);
+                \node[#1] at (pt) {};
+            }
+    }

@@ -58,7 +58,7 @@
 
 % Title information
 \title[Multigrid all the way down]{Multigrid, All the Way Down:\\
-  Patch Smoothers with p-Multigrid Local Solvers\\ and a GPU-First Rewrite}
+  Patch Smoothers with p-Multigrid Local Solvers\\ and a GPU-First FEM}
 
 \author[Wichrowski]{\underline{Michał Wichrowski}}
 \institute{Heidelberg University}
@@ -317,6 +317,12 @@
     \end{columns}
 \end{frame}
 
+\begin{frame}{The local solve, zoomed in}
+    \begin{center}
+        \resizebox{\textwidth}{!}{\input{figures/patch_flow.tex}}
+    \end{center}
+\end{frame}
+
 \begin{frame}{Does it survive ugly patches?}
     \begin{center}
         \resizebox{0.8\textwidth}{!}{\input{figures/patch_def.tex}}
@@ -525,7 +531,7 @@
 
 \begin{frame}{DSS is (almost) pure memory traffic}
     DSS carries essentially \alert{no arithmetic}: gather, sum, scatter.
-    The only honest metric is \alert{achieved memory throughput} (A100, fp64, $128^3$ mesh):
+    The only metric is \alert{achieved memory throughput} (A100, fp64, $128^3$ mesh):
     \begin{table}
         \centering
         \small
@@ -578,15 +584,36 @@
 \end{frame}
 
 \begin{frame}{Multigrid on top: hanging nodes for free}
-    Geometric multigrid on adaptive meshes, cell-wise storage (companion paper):
+    Geometric multigrid on adaptive meshes, cell-wise storage:
     \begin{itemize}
+        \small
         \item Classically: explicit hanging-node constraint matrix $C_{HN}$, edge operators, special transfer handling [Janssen \&
                       Kanschat '11]
         \item Cell-wise: the constraint is \emph{absorbed} into the primal--dual structure --- $C_{HN} \mathcal P = \mathcal P$, so
               it \alert{resolves into an identity} in the transfer
-        \item Level-wise masking + DSS is all that remains; provably equivalent to the classical local V-cycle, iterate by iterate
-        \item \alert{DSS across hanging nodes: never needed}
-        \item Flexible CG $\Rightarrow$ smoothers may run in \alert{reduced precision} (bytes, again)
+        \item Level-wise masking + DSS is all that remains; \alert{DSS across hanging nodes: never needed}
+    \end{itemize}
+    \vfill
+    Full solve throughput (Cartesian mesh, $p=3$, fp64, A100):
+    \begin{table}
+        \centering
+        \small
+        \vspace{-0.5em}
+        \begin{tabular}{lcc}
+            \toprule
+                                                     & \textbf{Solve [MDoF/s]} & to residual        \\
+            \midrule
+            Vertex-patch smoother [Cui et al.\ '25]  & 116                     & $10^{-9}$          \\
+            This work, uniform mesh                  & 99.5                    & \alert{$10^{-14}$} \\
+            This work, adaptive mesh (hanging nodes) & 88.8                    & \alert{$10^{-14}$} \\
+            \bottomrule
+        \end{tabular}
+        \vspace{-0.5em}
+    \end{table}
+    \begin{itemize}
+        \small
+        \item On par with the patch smoother --- while converging five orders further
+        \item Adaptivity (hanging nodes included) costs $\sim$10\%, not a rewrite
     \end{itemize}
 \end{frame}
 
@@ -636,21 +663,25 @@
 % ===========================================================================
 
 \begin{frame}{The scoreboard}
-    Things this line of work has managed to beat:
-    \begin{itemize}
-        \item[\checkmark] \textbf{Fast diagonalization} --- half V-cycle Jacobi is faster on CPU,
-              despite $1.7\times$ the FLOPs
-        \item[\checkmark] \textbf{Exact patch solvers} --- 15 vs 158 iterations on 3D Kershaw
-                  [Brubeck \& Farrell '21]; 66--80 vs $\sim$10 [Witte et al.\ '21]
-        \item[\checkmark] \textbf{Hand-written CUDA FEM kernels} --- Laplace useful-work throughput
-              above Cui et al.\ at every degree
-        \item[\checkmark] \textbf{libCEED BP1} --- full assembled operator up to $4.4\times$ faster on the same A100
-        \item[\checkmark] \textbf{cuBLAS} --- on small fp64 MMA shapes, with a compiler patch written in the process
-        \item[\checkmark] \textbf{Hanging nodes} --- eliminated by algebra, not by code
-    \end{itemize}
+    \begin{block}{Outperformed}
+        \begin{itemize}
+            \item[\checkmark] \textbf{Fast diagonalization} (CPU, despite more FLOPs)
+            \item[\checkmark] \textbf{Exact patch solvers} (15 vs 158 iterations, 3D Kershaw)
+            \item[\checkmark] \textbf{Hand-written CUDA kernels} \& \textbf{libCEED BP1} (up to $4.4\times$)
+            \item[\checkmark] \textbf{cuBLAS}
+        \end{itemize}
+    \end{block}
+    \vfill
+    \begin{block}{No longer needed}
+        \begin{itemize}
+            \item[$\varnothing$] \textbf{DoF indices}
+            \item[$\varnothing$] \textbf{Constraints}
+            \item[$\varnothing$] \textbf{Hanging nodes}
+        \end{itemize}
+    \end{block}
     \vfill
     \centering
-    \emph{Triton (Python!) beating CUDA is not a typo --- it's a memory-traffic story.}
+    % \emph{Triton (Python!) beating CUDA is not a typo --- it's a memory-traffic story.}
 \end{frame}
 
 \begin{frame}{Conclusions}

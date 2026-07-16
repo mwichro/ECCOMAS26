@@ -1,0 +1,165 @@
+
+\centering
+\def\svgwidth{\columnwidth}
+\begin{tikzpicture}[scale=0.8, transform shape, font=\large,
+        cell/.style={draw=black, thick, minimum size=1.2cm},
+        interior/.style={fill=blue!20},
+        global/.style={fill=red!15},
+        panel-label/.style={font=\bfseries\large, align=center},
+        arrow/.style={->, thick, shorten >=2mm, shorten <=2mm},
+        dof/.style={circle, fill=black, inner sep=0.8pt}
+    ]
+
+    % Helper to draw patch-wise DoFs (7x7 grid)
+    % #1 = top-left cell node name
+    % #2 = bottom-right cell node name
+    % Requires \usetikzlibrary{calc}
+    
+
+    % Helper to draw cubic DoFs for a cell
+    % #1 = cell node name
+    % Requires \usetikzlibrary{calc}
+    
+
+    
+    
+
+    % Panel 1: Gather data
+    \node[cell] (p1c1) at (0,0) {};
+    \node[cell] (p1c2) at (1.2,0) {};
+    \node[cell] (p1c3) at (0,-1.2) {};
+    \node[cell] (p1c4) at (1.2,-1.2) {};
+    \drawInteriorFrame{p1c1}{p1c4}
+
+    \drawCubicDoFs{p1c1}
+    \drawCubicDoFs{p1c2}
+    \drawCubicDoFs{p1c3}
+    \drawCubicDoFs{p1c4}
+    \drawPatchInteriorDoFs{p1c1}{p1c4}
+    \node[panel-label, above=0.3cm of p1c1.north west, anchor=south west] {Solution\\ Right-hand side\\(all DoFs)};
+
+    % Panel 2: Residual
+    \node[cell] (p2c1) at (4.5,0) {};
+    \node[cell] (p2c2) at (5.7,0) {};
+    \node[cell] (p2c3) at (4.5,-1.2) {};
+    \node[cell] (p2c4) at (5.7,-1.2) {};
+    \drawInteriorFrame{p2c1}{p2c4}
+    \drawPatchInteriorDoFs{p2c1}{p2c4}
+    \node[panel-label, above=0.3cm of p2c1.north west, anchor=south west] {Residual \\ (interior DoFs)};
+
+    % Panel 3: Smoothed Residual (moved below Panel 2)
+    \node[cell] (p3c1) at (4.5,-3.6) {};
+    \node[cell] (p3c2) at (5.7,-3.6) {};
+    \node[cell] (p3c3) at (4.5,-4.8) {};
+    \node[cell] (p3c4) at (5.7,-4.8) {};
+    \drawInteriorFrame{p3c1}{p3c4}
+    \drawPatchInteriorDoFs{p3c1}{p3c4}
+    \node[panel-label, below=0.3cm of p3c3.south west, anchor=north west] {Residual\\and Correction};
+
+    % Panel 4: Coarse Residual (move between Residual and Correction)
+    \node[cell] (p4c1) at (9,-3.6) {};
+    \node[cell] (p4c2) at (10.2,-3.6) {};
+    \node[cell] (p4c3) at (9,-4.8) {};
+    \node[cell] (p4c4) at (10.2,-4.8) {};
+    \drawInteriorFrame{p4c1}{p4c4}
+    % Show a single central DoF for coarse panels
+    \coordinate (p4center) at ($(p4c1.north west)!0.5!(p4c4.south east)$);
+    % larger central DoF for coarse panels so it's visible
+    % Match interior DoF appearance: blue fill, no outline
+    \node[dof, minimum size=10pt, inner sep=0pt, fill=blue, draw=none] at (p4center) {};
+
+    % Panel 5: Coarse Correction (moved below Correction panel)
+    \node[cell] (p5c1) at (13.5,-3.6) {};
+    \node[cell] (p5c2) at (14.7,-3.6) {};
+    \node[cell] (p5c3) at (13.5,-4.8) {};
+    \node[cell] (p5c4) at (14.7,-4.8) {};
+    \drawInteriorFrame{p5c1}{p5c4}
+    % Show a single central DoF for coarse panels
+    \coordinate (p5center) at ($(p5c1.north west)!0.5!(p5c4.south east)$);
+    % larger central DoF for coarse panels so it's visible
+    % Match interior DoF appearance: blue fill, no outline
+    \node[dof, minimum size=10pt, inner sep=0pt, fill=blue, draw=none] at (p5center) {};
+
+    % Panel 6: Correction and scatter
+    \node[cell] (p6c1) at (13.5,0) {};
+    \node[cell] (p6c2) at (14.7,0) {};
+    \node[cell] (p6c3) at (13.5,-1.2) {};
+    \node[cell] (p6c4) at (14.7,-1.2) {};
+    \drawInteriorFrame{p6c1}{p6c4}
+    \drawPatchInteriorDoFs{p6c1}{p6c4}
+    % bottom-center coordinate for arrows targeting the last panel
+    \coordinate (p6bottom) at ($(p6c3.south)!0.5!(p6c4.south)$);
+    \node[panel-label, above=0.3cm of p6c1.north west, anchor=south west] {Correction\\(interior only)};
+
+    % Local-solve background: rounded rectangle behind the p2..p6 panels
+    % Coordinates with a small padding
+    \coordinate (ls_nw) at ($(p2c1.north west)+(-6pt,6pt)$);
+    \coordinate (ls_se) at ($(p5c4.south east)+(6pt,-6pt)$);
+    % Slightly stronger light-grey fill so the Local Solve region is visible behind the panels
+    \draw[rounded corners=6pt, thick, draw=black!50, fill=gray!20, fill opacity=0.40]
+    (ls_nw) rectangle (ls_se);
+    % Label the local solve box slightly above its top edge; make the label larger and bold
+    \node[panel-label, font=\bfseries\LARGE] at ($(ls_nw)!0.5!(ls_se)+(0,0.6cm)$) {Local Solve};
+
+    % Redraw frames, DoFs and labels for panels inside the local-solve box so they appear on top
+    % Panel 2: Residual (draw frame without fill so Local Solve background shows through)
+    \draw[rounded corners=3pt, thick, draw=blue!60!black] ([shift={(4pt,-4pt)}]p2c1.north west) rectangle
+    ([shift={(-4pt,4pt)}]p2c4.south east);
+    \drawPatchInteriorDoFs{p2c1}{p2c4}
+    \node[panel-label, above=0.3cm of p2c1.north west, anchor=south west] {Residual \\ (interior DoFs)};
+
+    % Panel 3: Smoothed Residual (Residual and Correction)
+    \draw[rounded corners=3pt, thick, draw=blue!60!black] ([shift={(4pt,-4pt)}]p3c1.north west) rectangle
+    ([shift={(-4pt,4pt)}]p3c4.south east);
+    \drawPatchInteriorDoFs{p3c1}{p3c4}
+    \node[panel-label, below=0.3cm of p3c3.south west, anchor=north west] {Residual\\and Correction};
+
+    % Panel 4: Coarse Residual
+    \draw[rounded corners=3pt, thick, draw=blue!60!black] ([shift={(4pt,-4pt)}]p4c1.north west) rectangle
+    ([shift={(-4pt,4pt)}]p4c4.south east);
+    \node[panel-label, below=0.3cm of p4c3.south west, anchor=north west] {Coarse\\Residual};
+
+    % Panel 5: Coarse Correction
+    \draw[rounded corners=3pt, thick, draw=blue!60!black] ([shift={(4pt,-4pt)}]p5c1.north west) rectangle
+    ([shift={(-4pt,4pt)}]p5c4.south east);
+    \node[panel-label, below=0.3cm of p5c3.south west, anchor=north west] {Coarse\\Correction};
+
+    % Panel 6: Correction (redraw frame without fill to keep Local Solve background visible)
+    \draw[rounded corners=3pt, thick, draw=blue!60!black] ([shift={(4pt,-4pt)}]p6c1.north west) rectangle
+    ([shift={(-4pt,4pt)}]p6c4.south east);
+    \drawPatchInteriorDoFs{p6c1}{p6c4}
+    \node[panel-label, above=0.3cm of p6c1.north west, anchor=south west] {Correction\\(interior only)};
+
+    % Redraw coarse central DoFs on top of the Local Solve box so they are not visually
+    % overshadowed by the rounded rectangle background.
+    \node[dof, minimum size=10pt, inner sep=0pt, fill=blue, draw=none] at (p4center) {};
+    \node[dof, minimum size=10pt, inner sep=0pt, fill=blue, draw=none] at (p5center) {};
+
+    % Arrows between panels
+    \draw[arrow] ($(p1c3.west) - (2cm, 0)$) --	node[above, midway, ] {$\overline\Pi_j u, \;\;	\Pi_j b $}
+    node[below,
+        midway, ] {Gather}	(p1c3.west);
+    \draw[arrow] (p1c4.east) -- node[above, midway, ] {$b_j - \Pi_j\overline A_j \overline u_j$} node[below,
+        midway, ]
+    {Evaluate} (p2c3.west);
+    \draw[arrow] (p2c3.south) -- node[midway, right] {Smooth} (p3c1.north);
+    % local solve arrow removed (handled implicitly in diagram)
+    \draw[arrow] (p6c4.east) -- node[above, midway, ]{$\Pi_j^T d_j$} node[below, midway, ] {Scatter} ($(p6c4.east)
+    +
+    (2cm, 0)$);
+
+    % V-cycle arrows
+    % Make Restrict horizontal at the bottom row (same level as the coarse Smooth)
+    \draw[arrow] (p3c4.east) -- node[below, midway] {Restrict} (p4c3.west);
+    \draw[arrow] (p4c4.east) -- node[below, midway] {Smooth} (p5c3.west);
+    % Make Prolongate vertical from p5 down/up to bottom of last panel (use p6c2.south)
+    \draw[arrow] (p5c2.north) -- node[midway, left] {Prolongate and Add} (p6c4.south);
+
+    % Straight dashed arrow from top of last panel to top of second panel (evaluate)
+    % Use the same label placement as other arrows (node[above, midway]) so the spacing from the panel is consistent.
+    \draw[arrow, dashed] (p6c1.west) --
+    node[above, midway] {
+        % $b_j - \Pi_j\overline A_j d_j$
+    } node[below, midway] {Evaluate} (p2c2.east);
+
+\end{tikzpicture}
