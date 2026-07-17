@@ -330,16 +330,31 @@
     \begin{columns}[T]
         \begin{column}{0.22\textwidth}
             \centering
-            \begin{tikzpicture}[scale=1.0]
-                \begin{axis}[axis equal image, hide axis, width=\textwidth, enlargelimits=0.05]
-                    \addplot[black, thick, mark=none] table {figures/patch_def_data/patch035_2D.gp};
-                \end{axis}
-            \end{tikzpicture}\\[1.0em]
-            \begin{tikzpicture}[scale=1.0]
-                \begin{axis}[axis equal image, hide axis, width=\textwidth, enlargelimits=0.05]
-                    \addplot[black, mark=none] table {figures/patch_def_data/simplex035_2D.gp};
-                \end{axis}
-            \end{tikzpicture}\\[0.3em]
+            \resizebox{1.7cm}{!}{%
+                \begin{tikzpicture}
+                    \begin{axis}[axis equal image, hide axis, width=6cm, enlargelimits=0.05]
+                        \addplot[black, thick, mark=none] table {figures/patch_def_data/patch025_2D_1.gp};
+                    \end{axis}
+                \end{tikzpicture}}\\[0.3em]
+            \resizebox{1.7cm}{!}{%
+                \begin{tikzpicture}
+                    \begin{axis}[axis equal image, hide axis, width=6cm, enlargelimits=0.05]
+                        \addplot[black, mark=none] table {figures/patch_def_data/simplex025_2D.gp};
+                    \end{axis}
+                \end{tikzpicture}}\\[0.1em]
+            {\scriptsize $\delta = 25\%$}\\[0.8em]
+            \resizebox{1.7cm}{!}{%
+                \begin{tikzpicture}
+                    \begin{axis}[axis equal image, hide axis, width=6cm, enlargelimits=0.05]
+                        \addplot[black, thick, mark=none] table {figures/patch_def_data/patch035_2D.gp};
+                    \end{axis}
+                \end{tikzpicture}}\\[0.3em]
+            \resizebox{1.7cm}{!}{%
+                \begin{tikzpicture}
+                    \begin{axis}[axis equal image, hide axis, width=6cm, enlargelimits=0.05]
+                        \addplot[black, mark=none] table {figures/patch_def_data/simplex035_2D.gp};
+                    \end{axis}
+                \end{tikzpicture}}\\[0.1em]
             {\scriptsize $\delta = 35\%$}
         \end{column}
         \begin{column}{0.78\textwidth}
@@ -471,11 +486,11 @@
 \end{frame}
 
 \begin{frame}{Performance: full smoother on 32 cores}
-    \small
-    Wall-clock time of one smoother sweep relative to one global matrix-free $Au$
-    % (each cell sits in $2^d = 8$ patches $\Rightarrow$ naive lower bound $8\times Au$).
-    \\
-    Left: Cartesian, right: distorted.
+    \footnotesize{
+        \centering
+        Wall-clock time of one smoother sweep relative to one global matrix-free $Au$
+        % (each cell sits in $2^d = 8$ patches $\Rightarrow$ naive lower bound $8\times Au$).
+        }
     \par
     \normalsize
     \begin{center}
@@ -568,7 +583,7 @@
     \end{center}
     \vspace{0.5em}
     \begin{itemize}
-        \item No atomics, no coloring, no index lists --- every access coalesced
+        \item No atomics, no coloring, no index lists. Every access coalesced
     \end{itemize}
 \end{frame}
 
@@ -594,9 +609,9 @@
         \end{tabular}
     \end{table}
     \begin{itemize}
-        \item Structured path: $\approx 80\%$ of peak DRAM bandwidth, flat across all degrees
+        \item Structured path: $\approx 80\%$ of peak DRAM bandwidth
               % \item Unstructured path (general indirection): plateaus near $60\%$
-        \item Throughput per DoF \emph{improves} with $p$: interface DoFs get diluted
+        \item Throughput \emph{improves} with $p$: interface DoFs get diluted
     \end{itemize}
 \end{frame}
 
@@ -619,7 +634,7 @@
         \caption*{\footnotesize $^*$hand-written CUDA kernels of Cui et al.\ 2025}
     \end{table}
     \begin{itemize}
-        \item Runs at the \alert{memory roofline}: exactly 2 doubles (1 read + 1 write) per DoF
+        \item Runs at the \alert{memory roofline}: 2 doubles (1 read + 1 write) per DoF
         \item Useful-work rate exceeds the CUDA reference \alert{at every degree}
         \item Full assembled operator (apply + DSS) beats \alert{libCEED BP1} on the same device, $1.6\times$ at $p=1$ up to
               $4.4\times$ at $p=5$
