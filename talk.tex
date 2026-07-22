@@ -250,14 +250,10 @@
             \onslide<3->{{\normalsize --- Micro \alert{(probably)}}}
         \end{center}
     }
-    \vfill
     \onslide<4->{
         \begin{center}
             % PLACEHOLDER: photo of Micro the cat goes here
-            \begin{tikzpicture}
-                \node[draw, thick, dashed, minimum width=4.5cm, minimum height=3cm, align=center]
-                {\textbf{[photo of Micro]}\\ \small sitting in a box, obviously};
-            \end{tikzpicture}
+            \includegraphics[width=0.4\textwidth]{figures/boxMocroClose.png}
         \end{center}
     }
     \vfill
@@ -273,7 +269,7 @@
         \item Jacobi/Gauss--Seidel kill high frequencies, stall on low ones
         \item Fix: correct the low frequencies on a coarser grid $\to$ two-level method
         \item \emph{``And how do we solve the coarse problem?''} \quad
-              \alert{Add another level.} Recurse.
+              \alert{Add another level.}
     \end{enumerate}
     \vfill
     \begin{block}{The local patch problem is \emph{the same question}}
@@ -297,10 +293,13 @@
             \end{gather*}
             nested degrees $p_{k+1} = 2p_k + 1$
             \begin{itemize}
-                \item Transfers: tensorized $L^2$ projections,\\ $\mathcal O(p^{d+1})$ via sum factorization
-                \item Level operators: matrix-free,\\ evaluated on lower-degree basis
-                \item Smoother: damped Jacobi\\ (or fast diagonalization of the\\ \emph{reference} patch as preconditioner:\\ the
-                      ``Cartesian-reinforced'' smoother)
+                \item Transfers: tensorized $L^2$ projections,\\ $\mathcal O(p^{d+1})$
+                \item Level operators: sum-factorized
+                \item Smoother:
+                      \begin{itemize}
+                          \item damped Jacobi
+                          \item fast diagonalization of the \emph{reference} patch as preconditioner:\\ the ``Cartesian-reinforced'' smoother
+                      \end{itemize}
             \end{itemize}
         \end{column}
         \begin{column}{0.45\textwidth}
@@ -396,8 +395,7 @@
         \end{column}
         \begin{column}{0.68\textwidth}
             \begin{table}
-                \caption{GMRES iterations, Jacobi local smoother, $N_{\text{MG}}=1$ (parentheses: Brubeck \& Farrell
-                    '21, exact patch solves)}
+                \caption{GMRES iterations, Jacobi local smoother, $N_{\text{MG}}=1$ (parentheses: Brubeck \& Farrell)}
                 \footnotesize
                 \vspace{-0.5em}
                 \begin{tabular}{rl|ccc}
@@ -490,7 +488,7 @@
         \centering
         Wall-clock time of one smoother sweep relative to one global matrix-free $Au$
         % (each cell sits in $2^d = 8$ patches $\Rightarrow$ naive lower bound $8\times Au$).
-        }
+    }
     \par
     \normalsize
     \begin{center}
@@ -530,20 +528,19 @@
 
 \begin{frame}{Rewrite assumptions: what modern hardware wants}
     \textbf{Target: GPUs} (A100: 2\,TB/s DRAM, fp64 tensor cores)
-    \begin{itemize}
-        \item Nominal bandwidth attainable \alert{only} with \emph{coalesced} access: a warp must read consecutive words
-        \item An uncoalesced gather fetches a whole cache line per useful word
-    \end{itemize}
     \vfill
-    \begin{block}{The classical matrix-free pipeline is built around its worst operation}
-        gather cell DoFs $\to$ compute $\to$ scatter-accumulate (atomics!)
-        \\ Indirect addressing on \emph{every} operator application.
+    \begin{block}{The classical pipeline is built around its worst operation}
+        \begin{itemize}
+            \item gather $\to$ compute $\to$ scatter (atomics!)
+            \item Indirect addressing on \emph{every} operator application
+            \item Full bandwidth attainable \alert{only} with \emph{coalesced} access
+        \end{itemize}
     \end{block}
     \vfill
-    \begin{block}{My answer: make the \emph{cell-wise} vector the persistent storage}
+    \begin{block}{My answer: cell-wise vector as persistent storage}
         \begin{itemize}
-            \item DoFs duplicated across element interfaces --- DG-like storage for CG
-            \item Every access coalesced; no read-accumulate, no atomics
+            \item DG-like storage for CG: DoFs duplicated across interfaces
+            \item Every access coalesced --- no atomics
             \item Price: up to $8\times$ memory at $p=1$, shrinking fast with $p$
         \end{itemize}
     \end{block}
@@ -553,10 +550,11 @@
     Two kinds of vectors live in the redundant cell-wise space $\mathbb V_{\text{cell}}$:
     \begin{itemize}
         \small
-        \item \textbf{Primal} $u$: continuous fields, duplicated entries agree: $u = Cu$\\
-              {\footnotesize ($C$ = any idempotent projection onto continuous fields; encodes hanging nodes too)}
+        \item \textbf{Primal} $u$: continuous fields, duplicated entries agree
         \item \textbf{Dual} $\tilde r$: raw unassembled cell integrals (residuals) --- valid \emph{without} summation
     \end{itemize}
+    \emph{Constraint:} primal fields satisfy $u = Cu$ for idempotent operator $C$
+
     \begin{block}{Duality pairing identity}
         \vspace{-1.2em}
         \begin{gather*}
@@ -571,8 +569,9 @@
     \end{block}
     \begin{itemize}
         \small
-        \item CG/FGMRES written so every inner product pairs one primal with one dual $\Rightarrow$ \alert{no assembly, no
-                  communication in the Krylov loop}; provably identical iterates to the classical assembled solver
+        \item Every inner product pairs one primal with one dual $\Rightarrow$ \alert{no assembly, no communication in the Krylov
+                  loop}
+        \item Provably identical iterates to the classical assembled solver
         \item Only the preconditioner bridges the spaces (one DSS inside it)
     \end{itemize}
 \end{frame}
@@ -645,11 +644,10 @@
     Geometric multigrid on adaptive meshes, cell-wise storage:
     \begin{itemize}
         \small
-        \item Classically: explicit hanging-node constraint matrix $C_{HN}$, edge operators, special transfer handling [Janssen \&
-                      Kanschat '11]
-        \item Cell-wise: the constraint is \emph{absorbed} into the primal--dual structure --- $C_{HN} \mathcal P = \mathcal P$, so
-              it \alert{resolves into an identity} in the transfer
-        \item Level-wise masking + DSS is all that remains; \alert{DSS across hanging nodes: never needed}
+        \item Classically: explicit constraint matrix $C_{HN}$, edge operators, special transfer [Janssen \& Kanschat '11]
+        \item Cell-wise: constraint \emph{absorbed} --- $C_{HN} \mathcal P = \mathcal P$ \alert{resolves into an identity} in the
+              transfer
+        \item Only level-wise masking + DSS remains; \alert{Resolving hanging never required.}
     \end{itemize}
     \vfill
     \begin{table}
