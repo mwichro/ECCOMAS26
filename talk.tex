@@ -296,11 +296,12 @@
     \pause
     \vfill
     \begin{block}{The local patch problem is \emph{the same question}}
-        \emph{``How do we solve the local problem?''} \quad \alert{Add more levels!}
+        \emph{``How do we solve the local problem?''} \pause\quad \alert{Add more levels!}
+        \pause
         \begin{itemize}
             \item Solve each patch problem with its own multigrid
             \item h-coarsening not feasible: a patch is only $2^d$ cells
-            \item $\Rightarrow$ coarsen in the polynomial degree: \alert{p-multigrid}
+            \item coarsen in the polynomial degree: \alert{p-multigrid}
         \end{itemize}
     \end{block}
     \vfill
@@ -310,7 +311,7 @@
 \begin{frame}{The local p-multigrid solver}
     \begin{columns}[T]
         \begin{column}{0.55\textwidth}
-            \textbf{Hierarchy on the patch} (mesh fixed):
+            \textbf{Hierarchy on the patch}\footnote{Wichrowski (2025), Local patch solvers via p-MG.} (mesh fixed):
             \begin{gather*}
                 V_{j,1} \subset V_{j,3} \subset V_{j,7} \subset \dots \subset V_{j,p}
             \end{gather*}
@@ -470,7 +471,8 @@
         \begin{column}{0.45\textwidth}
             \begin{itemize}
                 \small
-                \item \alert{One} Braess--Sarazin step $\approx$ exact local solve
+                \item \alert{One} Braess--Sarazin step $\approx$ exact local solve\footnote{Wichrowski (2026), Stokes patch smoothers
+                          via local p-MG.}
                 \item $10^6$ viscosity contrast: same iteration counts
                 \item Same matrix-free machinery, one level down
             \end{itemize}
@@ -608,7 +610,9 @@
     \end{center}
     \vspace{0.5em}
     \begin{itemize}
-        \item No atomics, no coloring, no index lists. Every access coalesced
+        \item No atomics, no coloring, no index lists. Every access coalesced\footnote{Wichrowski (2026), Coalesced Matrix-Free FEM.}
+              \pause
+        \item Unstructured meshes: different algorithm, same idea.
     \end{itemize}
 \end{frame}
 
@@ -667,11 +671,10 @@
 \end{frame}
 
 \begin{frame}{Multigrid on top: hanging nodes for free}
-    Geometric multigrid on adaptive meshes, cell-wise storage:
+    Geometric multigrid on adaptive meshes\footnotemark[1]\,\footnotemark[2], cell-wise storage:
     \begin{itemize}
         \small
-        \item Classically: explicit constraint matrix $C_{HN}$, edge operators, special transfer\footnote{Janssen and Kanschat
-                  (2011).}
+        \item Classically: explicit constraint matrix $C_{HN}$, edge operators, special transfer
         \item Cell-wise: constraint \emph{absorbed} --- $C_{HN} \mathcal P = \mathcal P$ \alert{resolves into an identity} in the
               transfer
         \item Only level-wise masking + DSS remains; \alert{Resolving hanging never required.}
@@ -686,19 +689,23 @@
             \toprule
                                                      & \textbf{Solve [MDoF/s]} & to residual        \\
             \midrule
-            Vertex-patch smoother\footnotemark{}     & 116                     & $10^{-9}$          \\
+            Vertex-patch smoother                    & 116                     & $10^{-9}$          \\
             This work, uniform mesh                  & 99.5                    & \alert{$10^{-14}$} \\
             This work, adaptive mesh (hanging nodes) & 88.8                    & \alert{$10^{-14}$} \\
             \bottomrule
         \end{tabular}
         \vspace{-0.5em}
     \end{table}
-    \footnotetext{Cui et al.\ (2025).}
     \begin{itemize}
         \small
-        \item On par with the patch smoother --- while converging five orders further
+        \item On par with the patch smoother\footnotemark[3] --- while converging five orders further
         \item Adaptivity (hanging nodes included) costs $\sim$10\%, not a rewrite
     \end{itemize}
+    \footnotetext[1]{%
+        \parbox[t]{0.47\linewidth}{Wichrowski (2026), Coalesced MG\\[-0.15em]
+            \textsuperscript{2}Janssen and Kanschat (2011)}%
+        \hfill
+        \parbox[t]{0.47\linewidth}{\textsuperscript{3}Cui et al.\ (2025)}}
 \end{frame}
 
 \begin{frame}{The operators at the roofline}
@@ -708,7 +715,8 @@
             {\footnotesize \input{figures/fig_roofline.tex}}
 
             \vspace{0.2em}
-            {\footnotesize Laplace and mass operator, $p=1,\dots,7$ (A100, fp64)}
+            {\footnotesize Laplace and mass operator, $p=1,\dots,7$ (A100, fp64)\footnote{Wichrowski (2026), Coalesced
+                    Matrix-Free FEM.}}
         \end{column}
         \begin{column}{0.42\textwidth}
             \begin{itemize}
@@ -735,8 +743,9 @@
         \begin{itemize}
             \item fp64 tensor cores want $8{\times}8{\times}4$ tiles; for moderate $p$ the 1D matrices were too small for the shapes
                   Triton supported \pause
-            \item So I added the small-tile fp64 support \\({\small\texttt{triton-lang/triton \#10060}}; H100 in \#10313) \pause
-            \item Triton \alert{ outperforms cuBLAS} on 1024$\times$1024 MMA
+            \item So I added the small-tile fp64 support\footnote{\texttt{triton-lang/triton \#10060}}, including H100
+                  support\footnote{\texttt{triton-lang/triton \#10313}} \pause
+            \item Triton \alert{outperforms cuBLAS} on multiples of 1024$\times$1024 MMA
         \end{itemize}
     \end{block}
     \vfill
