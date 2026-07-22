@@ -66,6 +66,13 @@
 
 \usetheme{metropolis}
 \setbeamercolor{alerted text}{fg=red!75!black}
+\setbeamerfont{footnote}{size=\fontsize{7}{8}\selectfont}
+\setlength{\skip\footins}{0.35em}
+\addtobeamertemplate{footnote}{\vspace*{2.5mm}}{\vspace*{-2.5mm}}
+\renewcommand{\footnoterule}{%
+    \kern 5.5pt
+    \hrule width 0.4\columnwidth
+    \kern -5.7pt}
 \setbeamercolor{block title}{fg=white,bg=structure.fg}
 \setbeamercolor{block body}{fg=red!10!black,bg=gray!20}
 \setbeamertemplate{block}[shadow=true, rounded=true]
@@ -116,7 +123,7 @@
     \begin{block}{Vertex patch (Schwarz) smoothers}
         \begin{itemize}
             \item Overlapping subspace correction on patches of $2^d$ cells around each vertex
-            \item Robust in the polynomial degree $p$ \hfill {\small [Pavarino '93]}
+            \item Robust in the polynomial degree $p$\footnote{Pavarino (1993).}
             \item Excellent data locality --- great fit for modern hardware
             \item Handle Stokes, CutFEM, shifted boundary, \dots
         \end{itemize}
@@ -211,7 +218,7 @@
 \end{frame}
 
 \begin{frame}{The classical answer: fast diagonalization}
-    For a \alert{separable} operator on a \alert{Cartesian} patch (Lynch, Rice, Thomas '64):
+    For a \alert{separable} operator on a \alert{Cartesian} patch\footnote{Lynch, Rice, and Thomas (1964).}:
     \begin{gather*}
         A_j = L_x \otimes M_y + M_x \otimes L_y
         \qquad\Longrightarrow\qquad
@@ -220,7 +227,7 @@
     with 1D eigendecompositions $L Q = M Q \Lambda$.
     \begin{itemize}
         \item Exact inverse, applied with tensor contractions: $\mathcal O(p^{d+1})$ --- same cost as one operator application
-        \item The workhorse of state-of-the-art patch smoothers \hfill {\small [Witte, Arndt, Kanschat '21]}
+        \item The workhorse of state-of-the-art patch smoothers\footnote{Witte, Arndt, and Kanschat (2021).}
     \end{itemize}
     \vfill
     \begin{alertblock}{But\dots}
@@ -231,7 +238,7 @@
     \end{alertblock}
     \vfill
     \centering
-    So what do we do on a \emph{general} patch?
+    % So what do we do on a \emph{general} patch?
 \end{frame}
 
 % ===========================================================================
@@ -257,7 +264,7 @@
             \begin{column}{0.62\textwidth}
                 \centering
                 {\Large\itshape ``There is nothing better than a great box.''}\\[0.5em]
-                \onslide<3->{{\normalsize --- Micro \alert{(probably)}}}
+                {\normalsize --- Micro \onslide<3->{\alert{(probably)}}}
             \end{column}
             \begin{column}{0.34\textwidth}
                 \centering
@@ -396,7 +403,8 @@
                 \footnotesize
                 \item Essentially \alert{p-robust}, even at 25--30\% distortion
                 \item One inexact local V-cycle $\approx$ exact local solves {\small (perturbation theorem with explicit constants says why)}
-                \item Reference [Witte et al.\ '21], $p=15$, $\delta=25\%$: \alert{66} iters in 2D, \alert{80} in 3D
+                \item Published result\footnote{Witte, Arndt, and Kanschat (2021).}, $p=15$, $\delta=25\%$: \alert{66} iters in 2D,
+                      \alert{80} in 3D
             \end{itemize}
         \end{column}
     \end{columns}
@@ -639,17 +647,17 @@
         \footnotesize
         \begin{tabular}{l ccccccc}
             \toprule
-                                       & $\mathbb{Q}_1$ & $\mathbb{Q}_2$ & $\mathbb{Q}_3$ & $\mathbb{Q}_4$ & $\mathbb{Q}_5$ & $\mathbb{Q}_6$ & $\mathbb{Q}_7$ \\
+                                                  & $\mathbb{Q}_1$ & $\mathbb{Q}_2$ & $\mathbb{Q}_3$ & $\mathbb{Q}_4$ & $\mathbb{Q}_5$ & $\mathbb{Q}_6$ & $\mathbb{Q}_7$ \\
             \midrule
-            GDoF/s (unique)            & 14.1           & 32.4           & 42.4           & 37.9           & 37.9           & 39.5           & 59.6           \\
-            Memory throughput [GB/s]   & 1751           & 1727           & 1628           & 1219           & 1044           & 999            & 1421           \\
+            GDoF/s (unique)                       & 14.1           & 32.4           & 42.4           & 37.9           & 37.9           & 39.5           & 59.6           \\
+            Memory throughput [GB/s]              & 1751           & 1727           & 1628           & 1219           & 1044           & 999            & 1421           \\
             \midrule
-            theory TFLOP/s             & \alert{2.81}   & \alert{3.15}   & \alert{5.58}   & \alert{5.14}   & \alert{5.48}   & \alert{6.12}   & \alert{9.95}   \\
-            CUDA reference$^*$ TFLOP/s & ---            & 1.30           & 1.32           & 2.02           & 2.21           & 1.90           & 1.90           \\
+            theory TFLOP/s                        & \alert{2.81}   & \alert{3.15}   & \alert{5.58}   & \alert{5.14}   & \alert{5.48}   & \alert{6.12}   & \alert{9.95}   \\
+            CUDA reference\footnotemark{} TFLOP/s & ---            & 1.30           & 1.32           & 2.02           & 2.21           & 1.90           & 1.90           \\
             \bottomrule
         \end{tabular}
-        \caption*{\footnotesize $^*$hand-written CUDA kernels of Cui et al.\ 2025}
     \end{table}
+    \footnotetext{Hand-written CUDA kernels of Cui et al.\ (2025).}
     \begin{itemize}
         \item Runs at the \alert{memory roofline}: 2 doubles (1 read + 1 write) per DoF
         \item Useful-work rate exceeds the CUDA reference \alert{at every degree}
@@ -662,7 +670,8 @@
     Geometric multigrid on adaptive meshes, cell-wise storage:
     \begin{itemize}
         \small
-        \item Classically: explicit constraint matrix $C_{HN}$, edge operators, special transfer [Janssen \& Kanschat '11]
+        \item Classically: explicit constraint matrix $C_{HN}$, edge operators, special transfer\footnote{Janssen and Kanschat
+                  (2011).}
         \item Cell-wise: constraint \emph{absorbed} --- $C_{HN} \mathcal P = \mathcal P$ \alert{resolves into an identity} in the
               transfer
         \item Only level-wise masking + DSS remains; \alert{Resolving hanging never required.}
@@ -677,13 +686,14 @@
             \toprule
                                                      & \textbf{Solve [MDoF/s]} & to residual        \\
             \midrule
-            Vertex-patch smoother [Cui et al.\ '25]  & 116                     & $10^{-9}$          \\
+            Vertex-patch smoother\footnotemark{}     & 116                     & $10^{-9}$          \\
             This work, uniform mesh                  & 99.5                    & \alert{$10^{-14}$} \\
             This work, adaptive mesh (hanging nodes) & 88.8                    & \alert{$10^{-14}$} \\
             \bottomrule
         \end{tabular}
         \vspace{-0.5em}
     \end{table}
+    \footnotetext{Cui et al.\ (2025).}
     \begin{itemize}
         \small
         \item On par with the patch smoother --- while converging five orders further
@@ -725,8 +735,8 @@
         \begin{itemize}
             \item fp64 tensor cores want $8{\times}8{\times}4$ tiles; for moderate $p$ the 1D matrices were too small for the shapes
                   Triton supported \pause
-            \item So I added the small-tile fp64 support \\({\small\texttt{triton-lang/triton \#10060}}; H100 MMAv3 in \#10313)
-            \item Triton now \alert{sometimes outperforms cuBLAS} on these shapes
+            \item So I added the small-tile fp64 support \\({\small\texttt{triton-lang/triton \#10060}}; H100 in \#10313) \pause
+            \item Triton \alert{ outperforms cuBLAS} on 1024$\times$1024 MMA
         \end{itemize}
     \end{block}
     \vfill
@@ -741,9 +751,9 @@
 \begin{frame}{The scoreboard}
     \begin{block}{Outperformed}
         \begin{itemize}
-            \item[\checkmark] \textbf{SOTA patch solvers} (15 vs 158 iterations, 3D Kershaw)
+            \item[\checkmark] \textbf{SOTA patch solvers} (15 vs 158 iterations, 3D Kershaw) \pause
             \item[\checkmark] \textbf{Hand-written CUDA kernels}
-            \item[\checkmark]\textbf{libCEED BP1}
+            \item[\checkmark]\textbf{libCEED BP1}\pause
             \item[\checkmark] \textbf{cuBLAS}
         \end{itemize}
     \end{block}
@@ -797,7 +807,7 @@
                 \item[\textbullet] \textbf{[Wichrowski] Coalesced matrix-free FEM}
                 \item[\textbullet] \textbf{[Wichrowski] Stokes patch smoothers via local p-MG}
                 \item[\textbullet] [Wichrowski \& Ajith] Geometric MG for SBM
-                \item[\textbullet] [Wichrowski] Matrix-free CutFEM ghost penalties
+                \item[\textbullet] [Wichrowski] Matrix-free CutFEM: ghost penalties
             \end{itemize}
         \end{column}
         \begin{column}{0.49\textwidth}
