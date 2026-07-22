@@ -748,15 +748,10 @@
 
 \begin{frame}{Conclusions}
     \begin{itemize}
-        \item Patch smoothers are worth it --- if the local solve is cheap. \alert{Multigrid-within-multigrid} makes it cheap,
-              matrix-free, and robust (p- and h-robust, distorted meshes, coefficient jumps)
-        \item On modern hardware, \alert{bytes beat FLOPs}: iterative local solvers outrun direct ones, and cell-wise storage outruns
-              assembled pipelines
-              \begin{itemize}
-                  \item primal--dual pairing identity $\Rightarrow$ communication-free Krylov
-                  \item hanging nodes resolve into identity constraints
-              \end{itemize}
-        \item Rewriting from scratch (in Triton) was the right call
+        \item One inexact local p-MG V-cycle gives \alert{p- and h-robust} patch smoothing
+        \item \alert{Stokes}: one Braess--Sarazin step suffices, even at $10^6$ viscosity contrast
+        \item \alert{Assembly-free Krylov}; hanging-node constraints become identities
+        \item Triton reaches the roofline and tensor cores, \alert{beating CUDA, libCEED, and cuBLAS}
     \end{itemize}
     \vfill
 
@@ -764,11 +759,14 @@
         \color{structure.fg}\rule{\linewidth}{0.5mm}
     \end{center}
 
-    \vspace{0.5cm}
+    \vspace{0.1cm}
 
     \begin{center}
-        {\usebeamerfont{title}\usebeamercolor[fg]{title}\huge\textsf{Thank You!}}\\[0.3cm]
+        {\usebeamerfont{title}\usebeamercolor[fg]{title}\huge\textsf{Thank You!}}
     \end{center}
+    \vspace{0.15cm}
+    {\scriptsize\noindent\textbf{Acknowledgements.} Thanks to Mario Lezcano Casado (OpenAI) and Keren Zhou (George Mason University)
+        for reviewing and accepting the Triton fp64 MMA patch; Mario also fixed 64-bit bank conflicts, accelerating the $p=4,5$ kernels.\par}
 \end{frame}
 
 \end{document}
