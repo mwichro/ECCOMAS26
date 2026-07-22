@@ -240,24 +240,37 @@
 
 \begin{frame}[plain]{}
     \vfill
-    \begin{center}
-        {\Large\itshape ``Think outside the box.''}\\[0.5em]
-        {\normalsize --- Edward de Bono \onslide<3->{\alert{(probably)}}}
-    \end{center}
+    \begin{columns}[c,onlytextwidth]
+        \begin{column}{0.62\textwidth}
+            \centering
+            {\Large\itshape ``Think outside the box.''}\\[0.5em]
+            {\normalsize --- Anonymous \onslide<3->{\alert{(probably)}}}
+        \end{column}
+        \begin{column}{0.34\textwidth}
+            \centering
+            \fbox{\rule{0pt}{0.22\textheight}\rule{0.9\linewidth}{0pt}}
+        \end{column}
+    \end{columns}
     \vfill
     \onslide<2->{
-        \begin{center}
-            {\Large\itshape ``There is nothing better than a great box.''}\\[0.5em]
-            \onslide<3->{{\normalsize --- Micro \alert{(probably)}}}
-        \end{center}
-    }
-    \onslide<4->{
-        \begin{center}
-            % PLACEHOLDER: photo of Micro the cat goes here
-            \includegraphics[width=0.4\textwidth]{figures/boxMocroClose.png}
-        \end{center}
+        \begin{columns}[c,onlytextwidth]
+            \begin{column}{0.62\textwidth}
+                \centering
+                {\Large\itshape ``There is nothing better than a great box.''}\\[0.5em]
+                \onslide<3->{{\normalsize --- Micro \alert{(probably)}}}
+            \end{column}
+            \begin{column}{0.34\textwidth}
+                \centering
+                \onslide<4->{\includegraphics[width=\linewidth]{figures/boxMocroClose.png}}
+            \end{column}
+        \end{columns}
     }
     \vfill
+\end{frame}
+
+\begin{frame}[plain]
+    \centering
+    \includegraphics[width=\paperwidth,height=\paperheight,keepaspectratio]{figures/microFEM.png}
 \end{frame}
 
 % ===========================================================================
@@ -268,16 +281,18 @@
     How was multigrid invented in the first place?
     \begin{enumerate}
         \item Jacobi/Gauss--Seidel kill high frequencies, stall on low ones
-        \item Fix: correct the low frequencies on a coarser grid $\to$ two-level method
+        \item Fix: correct the low frequencies on a coarser grid
+        \item Two-level method
         \item \emph{``And how do we solve the coarse problem?''} \quad
               \alert{Add another level.}
     \end{enumerate}
+    \pause
     \vfill
     \begin{block}{The local patch problem is \emph{the same question}}
         \emph{``How do we solve the local problem?''} \quad \alert{Add more levels!}
         \begin{itemize}
             \item Solve each patch problem with its own multigrid
-            \item h-coarsening impossible: a patch is only $2^d$ cells
+            \item h-coarsening not feasible: a patch is only $2^d$ cells
             \item $\Rightarrow$ coarsen in the polynomial degree: \alert{p-multigrid}
         \end{itemize}
     \end{block}
@@ -726,7 +741,7 @@
 \begin{frame}{The scoreboard}
     \begin{block}{Outperformed}
         \begin{itemize}
-            \item[\checkmark] \textbf{Published patch solvers} (15 vs 158 iterations, 3D Kershaw)
+            \item[\checkmark] \textbf{SOTA patch solvers} (15 vs 158 iterations, 3D Kershaw)
             \item[\checkmark] \textbf{Hand-written CUDA kernels}
             \item[\checkmark]\textbf{libCEED BP1}
             \item[\checkmark] \textbf{cuBLAS}
@@ -767,6 +782,36 @@
     \vspace{0.15cm}
     {\scriptsize\noindent\textbf{Acknowledgements.} Thanks to Mario Lezcano Casado (OpenAI) and Keren Zhou (George Mason University)
         for reviewing and accepting the Triton fp64 MMA patch; Mario also fixed 64-bit bank conflicts, accelerating the $p=4,5$ kernels.\par}
+\end{frame}
+
+\begin{frame}{Some stuff I did...}
+    \scriptsize
+    \begin{columns}[T,onlytextwidth]
+        \begin{column}{0.49\textwidth}
+            {\centering\textbf{2026}\par}
+            \begin{itemize}
+                \setlength{\itemsep}{0.35em}
+                \item[\textbullet] [Wichrowski \& Ajith] SBM--Stokes: block preconditioning
+                \item[\textbullet] [Wichrowski \& Noomen] CutFEM: hyperelasticity and adaptivity
+                \item[\textbullet] \textbf{[Wichrowski] Coalesced MG on cell-wise storage}
+                \item[\textbullet] \textbf{[Wichrowski] Coalesced matrix-free FEM}
+                \item[\textbullet] \textbf{[Wichrowski] Stokes patch smoothers via local p-MG}
+                \item[\textbullet] [Wichrowski \& Ajith] Geometric MG for SBM
+                \item[\textbullet] [Wichrowski] Matrix-free CutFEM ghost penalties
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.49\textwidth}
+            {\centering\textbf{2025}\par}
+            \begin{itemize}
+                \setlength{\itemsep}{0.35em}
+                \item[\textbullet] \textbf{[Wichrowski] Local patch solvers via p-MG}
+                \item[\textbullet] [Wichrowski et al.] MF Finite-strain elasticity: automatic code generation
+                \item[\textbullet] [Wichrowski] DG--SBM: geometric multigrid
+                \item[\textbullet] [Wichrowski et al.] Patch smoothing with localized residuals
+                \item[\textbullet] [Wichrowski] Matrix-free high-order SBM operators
+            \end{itemize}
+        \end{column}
+    \end{columns}
 \end{frame}
 
 \end{document}
