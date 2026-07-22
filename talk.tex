@@ -65,6 +65,7 @@
 \date{ECCOMAS 2026}
 
 \usetheme{metropolis}
+\setbeamercolor{alerted text}{fg=red!75!black}
 \setbeamercolor{block title}{fg=white,bg=structure.fg}
 \setbeamercolor{block body}{fg=red!10!black,bg=gray!20}
 \setbeamertemplate{block}[shadow=true, rounded=true]
@@ -513,6 +514,7 @@
         \item Fixed overheads (data reshuffling, synchronization) cap further gains
     \end{itemize}
     \vfill
+    \pause
     \begin{alertblock}{Clearly, more can be done. But that means touching the foundations.}
         \centering
         Do we fix a 500\,000-line legacy FEM library\dots\ or rewrite from scratch?
@@ -537,6 +539,7 @@
         \end{itemize}
     \end{block}
     \vfill
+    \pause
     \begin{block}{My answer: cell-wise vector as persistent storage}
         \begin{itemize}
             \item DG-like storage for CG: DoFs duplicated across interfaces
@@ -702,15 +705,17 @@
         \item Sum-factorized 1D contractions map onto tensor-core (MMA) tiles
     \end{itemize}
     \vfill
-    \begin{block}{One catch: fp64 tensor cores want $8\times8\times4$ tiles}
-        For moderate $p$ the 1D matrices are too small for the tile shapes Triton supported.
-        \\[0.4em]
-        $\Rightarrow$ I implemented the small-tile fp64 MMAv2 shape ($8{\times}8{\times}4$) in the Triton
-        compiler and upstreamed it (\texttt{triton-lang/triton \#10060}).
-        \\[0.4em]
-        On the benchmarked MMA shapes, Triton now \alert{sometimes outperforms cuBLAS}.
+    \pause
+    \begin{block}{The catch}
+        \begin{itemize}
+            \item fp64 tensor cores want $8{\times}8{\times}4$ tiles; for moderate $p$ the 1D matrices were too small for the shapes
+                  Triton supported \pause
+            \item So I added the small-tile fp64 support \\({\small\texttt{triton-lang/triton \#10060}}; H100 MMAv3 in \#10313)
+            \item Triton now \alert{sometimes outperforms cuBLAS} on these shapes
+        \end{itemize}
     \end{block}
     \vfill
+    \pause
     None of the results on the previous slides are possible without this.
 \end{frame}
 
@@ -721,12 +726,13 @@
 \begin{frame}{The scoreboard}
     \begin{block}{Outperformed}
         \begin{itemize}
-            \item[\checkmark] \textbf{Fast diagonalization} (CPU, despite more FLOPs)
-            \item[\checkmark] \textbf{Exact patch solvers} (15 vs 158 iterations, 3D Kershaw)
-            \item[\checkmark] \textbf{Hand-written CUDA kernels} \& \textbf{libCEED BP1} (up to $4.4\times$)
+            \item[\checkmark] \textbf{Published patch solvers} (15 vs 158 iterations, 3D Kershaw)
+            \item[\checkmark] \textbf{Hand-written CUDA kernels}
+            \item[\checkmark]\textbf{libCEED BP1}
             \item[\checkmark] \textbf{cuBLAS}
         \end{itemize}
     \end{block}
+    \pause
     \vfill
     \begin{block}{No longer needed}
         \begin{itemize}
