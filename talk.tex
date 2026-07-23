@@ -355,32 +355,9 @@
     \begin{columns}[T]
         \begin{column}{0.22\textwidth}
             \centering
-            \resizebox{1.7cm}{!}{%
-                \begin{tikzpicture}
-                    \begin{axis}[axis equal image, hide axis, width=6cm, enlargelimits=0.05]
-                        \addplot[black, thick, mark=none] table {figures/patch_def_data/patch025_2D_1.gp};
-                    \end{axis}
-                \end{tikzpicture}}\\[0.3em]
-            \resizebox{1.7cm}{!}{%
-                \begin{tikzpicture}
-                    \begin{axis}[axis equal image, hide axis, width=6cm, enlargelimits=0.05]
-                        \addplot[black, mark=none] table {figures/patch_def_data/simplex025_2D.gp};
-                    \end{axis}
-                \end{tikzpicture}}\\[0.1em]
-            {\scriptsize $\delta = 25\%$}\\[0.8em]
-            \resizebox{1.7cm}{!}{%
-                \begin{tikzpicture}
-                    \begin{axis}[axis equal image, hide axis, width=6cm, enlargelimits=0.05]
-                        \addplot[black, thick, mark=none] table {figures/patch_def_data/patch035_2D.gp};
-                    \end{axis}
-                \end{tikzpicture}}\\[0.3em]
-            \resizebox{1.7cm}{!}{%
-                \begin{tikzpicture}
-                    \begin{axis}[axis equal image, hide axis, width=6cm, enlargelimits=0.05]
-                        \addplot[black, mark=none] table {figures/patch_def_data/simplex035_2D.gp};
-                    \end{axis}
-                \end{tikzpicture}}\\[0.1em]
-            {\scriptsize $\delta = 35\%$}
+            \vspace{2.5cm}
+            \includegraphics[width=\textwidth]{figures/distorted_03.pdf}\\[0.2em]
+            {\scriptsize $\delta = 30\%$}
         \end{column}
         \begin{column}{0.78\textwidth}
             \begin{table}
@@ -406,8 +383,7 @@
                 \footnotesize
                 \item Essentially \alert{p-robust}, even at 25--30\% distortion
                 \item One inexact local V-cycle $\approx$ exact local solves {\small (perturbation theorem with explicit constants says why)}
-                \item Published result\footnote{Witte, Arndt, and Kanschat (2021).}, $p=15$, $\delta=25\%$: \alert{66} iters in 2D,
-                      \alert{80} in 3D
+                \item SOTA\footnote{Witte, Arndt, and Kanschat (2021).}, $p=15$, $\delta=25\%$: \alert{66} iters in 2D, \alert{80} in 3D
             \end{itemize}
         \end{column}
     \end{columns}
