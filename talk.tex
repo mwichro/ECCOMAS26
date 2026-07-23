@@ -114,18 +114,19 @@
 
 \begin{frame}{Setting: high-order FEM + geometric multigrid}
     \begin{itemize}
-        \item Poisson-type problems, $\mathbb Q_p$ tensor-product elements, mesh hierarchy $\mesh_1 \sqsubset \dots \sqsubset
+        \item $\mathbb Q_p$ \alert{tensor-product} elements, mesh hierarchy $\mesh_1 \sqsubset \dots \sqsubset
                   \mesh_L$
         \item Matrix-free operator evaluation with sum factorization: $\mathcal O(p^{d+1})$ work, $\mathcal O(p^d)$ memory
         \item Multigrid V-cycle needs a \alert{smoother} on every level
     \end{itemize}
     \vfill
+    \pause
     \begin{block}{Vertex patch (Schwarz) smoothers}
         \begin{itemize}
             \item Overlapping subspace correction on patches of $2^d$ cells around each vertex
             \item Robust in the polynomial degree $p$\footnote{Pavarino (1993).}
             \item Excellent data locality --- great fit for modern hardware
-            \item Handle Stokes, CutFEM, shifted boundary, \dots
+            \item Handle Stokes, CutFEM, SBM, \dots
         \end{itemize}
     \end{block}
 \end{frame}
@@ -211,7 +212,7 @@
     \vfill
     \begin{itemize}
         \item Multiplicative (Gauss--Seidel-like) sweep over all vertex patches
-        \item Everything is matrix-free and cache-friendly \dots
+        \item Everything can be matrix-free and cache-friendly
         \item \alert{except:} what is $\tilde A_j^{-1}$? \quad
               $(p{+}1)^d$-sized dense problem on \emph{every} patch, \emph{every} sweep
     \end{itemize}
@@ -226,10 +227,11 @@
     \end{gather*}
     with 1D eigendecompositions $L Q = M Q \Lambda$.
     \begin{itemize}
-        \item Exact inverse, applied with tensor contractions: $\mathcal O(p^{d+1})$ --- same cost as one operator application
+        \item Exact inverse, applied with tensor contractions: $\mathcal O(p^{d+1})$
         \item The workhorse of state-of-the-art patch smoothers\footnote{Witte, Arndt, and Kanschat (2021).}
     \end{itemize}
     \vfill
+    \pause
     \begin{alertblock}{But\dots}
         \begin{itemize}
             \item Requires separability: Cartesian cells, constant coefficients
@@ -420,7 +422,7 @@
         \end{column}
         \begin{column}{0.68\textwidth}
             \begin{table}
-                \caption{GMRES iterations, Jacobi local smoother, $N_{\text{MG}}=1$ (parentheses: Brubeck \& Farrell)}
+                \caption{GMRES iterations, Jacobi local smoother, $N_{\text{MG}}=1$ (parentheses: [Brubeck \& Farrell])}
                 \footnotesize
                 \vspace{-0.5em}
                 \begin{tabular}{rl|ccc}
@@ -440,7 +442,7 @@
             \begin{itemize}
                 \small
                 \item p-robust \emph{and} h-robust: iterations \emph{decrease} with more levels $L$
-                \item Inexact, iterative local solves beat exact patch factorizations by $10\times$
+                      % \item Inexact, iterative local solves beat exact patch factorizations by $10\times$
             \end{itemize}
         \end{column}
     \end{columns}
@@ -605,13 +607,15 @@
 \end{frame}
 
 \begin{frame}{Direct stiffness summation without indirection}
+    \begin{itemize}
+        \item Structured: cascade of exchanges along the $d$ axes\footnote{Wichrowski (2026), Coalesced Matrix-Free FEM.}
+    \end{itemize}
     \begin{center}
         \resizebox{0.98\textwidth}{!}{\input{figures/fig_dss_propagation.tex}}
     \end{center}
     \vspace{0.5em}
     \begin{itemize}
-        \item No atomics, no coloring, no index lists. Every access coalesced\footnote{Wichrowski (2026), Coalesced Matrix-Free FEM.}
-              \pause
+        \item No atomics, no coloring, no index lists. Every access coalesced \pause
         \item Unstructured meshes: different algorithm, same idea.
     \end{itemize}
 \end{frame}
@@ -745,7 +749,7 @@
                   Triton supported \pause
             \item So I added the small-tile fp64 support\footnote{\texttt{triton-lang/triton \#10060}}, including H100
                   support\footnote{\texttt{triton-lang/triton \#10313}} \pause
-            \item Triton \alert{outperforms cuBLAS} on multiples of 1024$\times$1024 MMA
+            \item Triton \alert{outperforms cuBLAS} on multiples of 1024$\times$1024 GEMM
         \end{itemize}
     \end{block}
     \vfill
@@ -761,9 +765,10 @@
     \begin{block}{Outperformed}
         \begin{itemize}
             \item[\checkmark] \textbf{SOTA patch solvers} (15 vs 158 iterations, 3D Kershaw) \pause
-            \item[\checkmark] \textbf{Hand-written CUDA kernels}
-            \item[\checkmark]\textbf{libCEED BP1}\pause
-            \item[\checkmark] \textbf{cuBLAS}
+            \item[\checkmark] \textbf{Hand-written CUDA kernels} (Cui at al.)
+            \item[\checkmark]\textbf{libCEED BP1}
+                  \pause
+            \item[\checkmark] \textbf{cuBLAS} (GEMM)
         \end{itemize}
     \end{block}
     \pause
