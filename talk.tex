@@ -131,9 +131,13 @@
     \begin{block}{Vertex patch (Schwarz) smoothers}
         \begin{itemize}
             \item Overlapping subspace correction on patches of $2^d$ cells around each vertex
-            \item Robust in the polynomial degree $p$\footnote{Pavarino (1993).}
+            \item Robust in the polynomial degree $p$\footnote{Pavarino (1993), Additive Schwarz methods for the $p$-version finite
+                      element method, \emph{Numer. Math.}}
             \item Excellent data locality --- great fit for modern hardware
-            \item Handle Stokes, CutFEM, SBM, \dots
+            \item Handle Stokes\footnote{Wichrowski (2026), Towards matrix-free patch smoothers for the Stokes problem,
+                      arXiv:2601.13230.}, CutFEM\footnote{Wichrowski (2026), A multigrid method for CutFEM and its convergence,
+                      arXiv:2609.04067.}, SBM\footnote{Wichrowski and Ajith (2026), A geometric multigrid preconditioner for the SBM,
+                      \emph{CMAME} }, \dots
         \end{itemize}
     \end{block}
 \end{frame}
@@ -712,14 +716,14 @@
     \small
     All three pieces turn into identities once vectors are cell-wise and residuals stay unassembled\footnote{Wichrowski
         (2026), Coalesced MG on cell-wise storage.}:
-    \vspace{0.3em}
+    \vspace{0.1em}
     \begin{enumerate}
         \item \textbf{Prolongation:} \quad $C_{HN}\,\mathcal P = \mathcal P$\\
               a prolongated coarse field is \emph{already} continuous on the refinement edge --- nothing to enforce
               \pause
         \item \textbf{Restriction:} \quad $\mathcal R_{\text{cell}}$ applied to the \emph{unassembled} residual
               $\;=\; \mathcal R\, C_{HN}^T$\\
-              plain tensor-product transfer, cell by cell; no constraints, no valence weights
+              plain tensor-product transfer, cell by cell; no constraints
               \pause
         \item \textbf{Edge operators:} \quad a pointwise $0/1$ mask on the smoother
               \begin{itemize}
@@ -730,8 +734,7 @@
     \end{enumerate}
     \pause
     \begin{block}{Theorem}
-        The cell-wise V-cycle equals classical local multigrid \alert{iterate by iterate} --- and inherits its
-        convergence theory.
+        The cell-wise V-cycle equals classical local multigrid \alert{iterate by iterate}.
     \end{block}
 \end{frame}
 
@@ -1255,10 +1258,10 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}{What can be proven (no proofs today)}
+\begin{frame}{What I proven }
     Levels are \emph{non-inherited}: every level has its own active mesh and its own ghost faces;
     energy lives on $\Omega$, functions on $\Omega_\ell \supseteq \Omega$
-    \vfill
+
     \begin{block}{Theorems\footnote{Wichrowski (2026), A multigrid method for CutFEM and its convergence.}}
         \begin{itemize}
             \item Two-level convergence \alert{independent of $h$ and of how $\Gamma$ cuts the mesh}
@@ -1271,7 +1274,7 @@
     \begin{block}{The price: the polynomial degree}
         \begin{itemize}
             \item Constants grow like $\exp(2p\log p)$ --- traced to the \alert{ghost-penalty energy}
-            \item The loss lives in the \alert{boundary strip}: its contraction $\sigma(p) < 1$ uniformly in $h$ and the cut
+            \item The loss lives in the \alert{boundary strip}
             \item The ghost penalty is the knob to turn
         \end{itemize}
     \end{block}
@@ -1338,20 +1341,20 @@
 
 \begin{frame}{Finite strain: from an energy straight to CutFEM}
     \small
-    \textbf{One} augmented energy\footnote{Wichrowski and Noomen (2026), A unified CutFEM formulation for finite-strain
-        elasticity.} (Nitsche weight $\eta(\bar u)$ frozen at the current iterate):
+    \textbf{One} augmented energy\footnote{Wichrowski and Noomen, A unified CutFEM formulation for finite-strain elasticity, \emph{CMAME}, accepted.} (Nitsche weight $\eta(\bar u)$ frozen at the current iterate):
     \begin{align*}
         \mathcal E_{\text{tot}}(u) = {} & \int_\Omega \Psi(F)\,dV - \text{loads}            \\
                                         & \underbrace{-\int_{\Gamma} n\cdot P(u)\cdot u\,dS
             + \int_{\Gamma}\tfrac{\gamma_D\,\eta(\bar u)}{2h}|u|^2 dS}_{\text{Nitsche}}
         + \underbrace{\tfrac{\gamma_A}{2}\sum_{F}g_F(u,u)}_{\text{ghost penalty}}
     \end{align*}
+    \vspace{-0.8em}
     \begin{center}
-        \begin{tikzpicture}[node distance=0.6cm and 0.9cm,
-            box/.style={draw, rounded corners, thick, align=center, inner sep=3pt, font=\small},
+        \begin{tikzpicture}[node distance=0.45cm and 0.7cm,
+            box/.style={draw, rounded corners, thick, align=center, inner sep=2pt, font=\footnotesize},
             arr/.style={-{Latex[length=2mm]}, thick}]
-            \node[box, fill=orange!20] (psi) {$\Psi(F)$\\ \scriptsize scalar energy};
-            \node[box, fill=blue!10, right=of psi] (ad) {AD\\ \scriptsize (AceGen)};
+            \node[box, fill=orange!20] (psi) {$\Psi(F)$\\ \tiny scalar energy};
+            \node[box, fill=blue!10, right=of psi] (ad) {AD\\ \tiny (AceGen)};
             \node[box, right=of ad] (PL) {$P = \dfrac{\partial\Psi}{\partial F}$,\quad
                 $\mathbb L = \dfrac{\partial^2\Psi}{\partial F^2}$};
             \node[box, fill=green!15, right=of PL] (res) {residual\\ + tangent};
@@ -1360,11 +1363,15 @@
             \draw[arr] (PL) -- (res);
         \end{tikzpicture}
     \end{center}
+    \vspace{-0.9em}
     \begin{itemize}
         \footnotesize
-        \item Residual = exact first variation; tangent = symmetric quasi-Newton (drops one $\partial^3\Psi$ term)
-        \item Nitsche weight read off the AD tensor: $\eta = \max\{2\mu,\ \tfrac12\|\mathbb L\|_1\}$
-        \item \alert{New material = one new line}: neo-Hookean $\to$ isochoric/volumetric split, same code path
+        \setlength{\itemsep}{0.15em}
+        \item Residual = exact first variation; tangent symmetrised (one $\partial^3\Psi$ term dropped)
+              % \item Nitsche weight read off the AD tensor: $\eta = \max\{2\mu,\ \tfrac12\|\mathbb L\|_1\}$
+        \item Jacobian defect $=\mathcal O(h^{\,p-d/2})\to 0$: quasi-Newton on a fixed mesh, \alert{asymptotically Newton} under
+              refinement ($p>d/2$)
+        \item \alert{New material = one new line}
         \item Proven: cut-independent coercivity, $\operatorname{cond} = \mathcal O(h^{-2})$, quasi-optimal error
     \end{itemize}
 \end{frame}
@@ -1420,6 +1427,7 @@
               \begin{itemize}
                   \item any hyperelastic model, same code
                   \item optimal rates, cut-independent conditioning
+                  \item \alert{adaptivity is a must}: corner singularities otherwise cap the rates
               \end{itemize}
     \end{itemize}
     \vfill
