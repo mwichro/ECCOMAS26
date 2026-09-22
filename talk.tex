@@ -212,7 +212,7 @@
     \vfill
     \begin{itemize}
         \item Multiplicative (Gauss--Seidel-like) sweep over all vertex patches
-        \item Everything can be matrix-free and cache-friendly
+        \item Everything can be matrix-free and cache-friendly\footnote{Wichrowski at al, 2025}
         \item \alert{except:} what is $\tilde A_j^{-1}$? \quad
               $(p{+}1)^d$-sized dense problem on \emph{every} patch, \emph{every} sweep
     \end{itemize}
@@ -405,12 +405,12 @@
                     \toprule
                        & $p\setminus L$ & 2                          & 3  & 4  \\
                     \midrule
-                       & 3              & 16 \,(54)                  & 15 & 13 \\
-                    2D & 7              & 13 \,(78)                  & 14 & 14 \\
-                       & 15             & 19 \,(90)                  & 15 & 13 \\
+                       & 3              & 16 \,[54]                  & 15 & 13 \\
+                    2D & 7              & 13 \,[78]                  & 14 & 14 \\
+                       & 15             & 19 \,[90]                  & 15 & 13 \\
                     \midrule
-                       & 3              & 18 \,(102)                 & 18 & 16 \\
-                    3D & 7              & \alert{15} \,(\alert{158}) & 17 & 17 \\
+                       & 3              & 18 \,[102]                 & 18 & 16 \\
+                    3D & 7              & \alert{15} \,[\alert{158}] & 17 & 17 \\
                     \bottomrule
                 \end{tabular}
                 \vspace{-0.5em}
@@ -708,7 +708,7 @@
             \end{itemize}
         \end{column}
     \end{columns}
-\end{frame}
+    x\end{frame}
 
 \begin{frame}{Implementation: Triton}
     The \emph{entire} solver stack is written in \alert{Triton}
@@ -720,6 +720,7 @@
     \vfill
     \pause
     \begin{block}{The catch}
+        \pause
         \begin{itemize}
             \item fp64 tensor cores want $8{\times}8{\times}4$ tiles; for moderate $p$ the 1D matrices were too small for the shapes
                   Triton supported \pause
