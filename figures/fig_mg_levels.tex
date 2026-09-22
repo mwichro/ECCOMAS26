@@ -1,0 +1,115 @@
+% Level-wise decomposition of a locally refined active mesh (2:1 balanced).
+% LEFT : the composed active mesh T_act (flat, top-down), cells of three different
+%        sizes, refinement interfaces in red.
+% RIGHT: its decomposition into the level meshes T_0, ..., T_L drawn one above the
+%        other in an oblique exploded view. On each level the cells refined further
+%        (inactive there) are shaded gray; active cells are white. The refinement
+%        edge between level (ell-1) and ell is drawn on the finer level ell (E_ell,
+%        red); the interior region where the level smoother acts is marked (S_ell).
+% The level-1 region is L-shaped: a deeply refined block at the bottom-left (down to
+% level L) plus a one-level-deep cell at the top-left. The mesh is 2:1 balanced: the
+% level-2 region is separated from the level-0 cells by a collar of level-1 cells.
+\begin{tikzpicture}[
+                scale=0.5,
+                % oblique projection: plane coord (u,v) at height z maps to
+                % screen (u + \sk*v, \mgd*v + z)
+                act/.style={draw=black, thin, fill=white}, inact/.style={draw=black, thin, fill=gray!45}, foot/.style={draw=black!45,
+                                thin, dashed}, redge/.style={green!50!black, line width=1.8pt, shorten >=2pt, shorten <=2pt}, lev/.style={font=\large, scale=0.75},
+        ]% active cell% refined (inactive) cell% domain footprint% refinement edge E_ell
+
+        \def\sk{0.58}   % horizontal shear per unit depth
+        \def\mgd{0.42}  % vertical compression per unit depth
+        \def\zz{2.05}   % explosion gap between levels
+        \def\W{6}       % domain width  (coarse units)
+        \def\H{4}       % domain height (coarse units)
+
+        % parallelogram cell of side s with lower-left plane corner (u,v) at height z
+        \newcommand{\mgcell}[5]{% {u}{v}{s}{z}{style}
+                \filldraw[#5]
+                ({#1+\sk*#2},{\mgd*#2+#4})
+                -- ({#1+#3+\sk*#2},{\mgd*#2+#4})
+                -- ({#1+#3+\sk*(#2+#3)},{\mgd*(#2+#3)+#4})
+                -- ({#1+\sk*(#2+#3)},{\mgd*(#2+#3)+#4}) -- cycle;
+        }
+        % domain footprint [0,W]x[0,H] outline at height z
+        \newcommand{\mgfoot}[1]{%
+                \draw[foot]
+                ({0+\sk*0},{\mgd*0+#1})
+                -- ({\W+\sk*0},{\mgd*0+#1})
+                -- ({\W+\sk*\H},{\mgd*\H+#1})
+                -- ({0+\sk*\H},{\mgd*\H+#1}) -- cycle;
+        }
+        % a segment on plane between (u1,v1)-(u2,v2) at height z, in given style
+        \newcommand{\mgseg}[6]{% {u1}{v1}{u2}{v2}{z}{style}
+                \draw[#6] ({#1+\sk*#2},{\mgd*#2+#5}) -- ({#3+\sk*#4},{\mgd*#4+#5});
+        }
+
+        % =====================================================================
+        % LEFT: composed active mesh T_act (flat, top-down)
+        % =====================================================================
+        \begin{scope}[shift={(-7.6,1.6)}, scale=0.78]
+                % coarse active cells (size 2)
+                \foreach \c/\r in {4/0,2/2,4/2}
+                \draw[act] (\c,\r) rectangle (\c+2,\r+2);
+                % medium active cells (size 1): L-shaped level-1 region (collar of the
+                % deep block, plus the once-refined top-left cell)
+                \foreach \c/\r in {2/0,3/0,0/1,1/1,2/1,3/1,0/2,1/2,0/3,1/3}
+                \draw[act] (\c,\r) rectangle (\c+1,\r+1);
+                % fine active cells (size 1/2) in the deeply refined region [0,2]x[0,1]
+                \foreach \c in {0,0.5,1,1.5} \foreach \r in {0,0.5}
+                \draw[act] (\c,\r) rectangle (\c+0.5,\r+0.5);
+                % refinement interfaces
+                \draw[redge] (4,0) -- (4,2);                                  % level 0/1
+                \draw[redge] (2,2) -- (4,2);   \draw[redge] (2,2) -- (2,4);   % level 0/1
+                \draw[redge] (2,0) -- (2,1);   \draw[redge] (0,1) -- (2,1);   % level 1/L
+                \node[anchor=north, font=\Large, scale=0.75] at (3,-0.25) {$\mathcal{T}_{\mathrm{act}}$};
+        \end{scope}
+
+        % arrow from the assembled mesh to the exploded stack
+        \draw[-{Latex[length=3mm]}, thick] (-1.9,2.6) -- (-0.6,2.6)
+        node[midway, above, font=\scriptsize] {Level split};
+
+        % =====================================================================
+        % LEVEL 0 (z=0): coarse mesh, size-2 cells over [0,6]x[0,4]. The bottom-left
+        % pair [0,4]x[0,2] and the top-left cell [0,2]x[2,4] are refined -> inactive
+        % (gray). No refinement edge on the coarsest level.
+        % =====================================================================
+        \def\z{0}
+        \foreach \c/\r in {4/0,2/2,4/2} \mgcell{\c}{\r}{2}{\z}{act}
+        \mgcell{0}{0}{2}{\z}{inact}
+        \mgcell{2}{0}{2}{\z}{inact}
+        \mgcell{0}{2}{2}{\z}{inact}
+        \node[lev, anchor=east] at ({0+\sk*\H-0.35},{\mgd*\H+\z}) {$\mathcal{T}_0$};
+
+        % =====================================================================
+        % LEVEL 1 (z=zz): L-shaped region (bottom block [0,4]x[0,2] + top-left cell
+        % [0,2]x[2,4]), size-1 cells. The two bottom-left cells [0,2]x[0,1] are
+        % refined again -> inactive (gray). The level 0/1 refinement edge (E_1) runs
+        % along the staircase boundary with the level-0 cells.
+        % =====================================================================
+        \def\z{\zz}
+        \mgfoot{\z}
+        \foreach \c/\r in {2/0,3/0,0/1,1/1,2/1,3/1,0/2,1/2,0/3,1/3} \mgcell{\c}{\r}{1}{\z}{act}
+        \mgcell{0}{0}{1}{\z}{inact}
+        \mgcell{1}{0}{1}{\z}{inact}
+        \mgseg{4}{0}{4}{2}{\z}{redge}          % E_1 along u=4
+        \mgseg{2}{2}{4}{2}{\z}{redge}          % E_1 along v=2 (u in 2..4)
+        \mgseg{2}{2}{2}{4}{\z}{redge}          % E_1 along u=2 (v in 2..4)
+        \node[lev, anchor=east] at ({0+\sk*\H-0.35},{\mgd*\H+\z}) {$\mathcal{T}_1$};
+        \node[green!50!black, font=\large, scale=0.75, anchor=west] at ({4.05+\sk*1.0},{\mgd*1.0+\z}) {$E_\ell$};
+
+        % =====================================================================
+        % LEVEL 2 (z=2*zz): finest region [0,2]x[0,1], size-1/2 cells (4x2), all
+        % active. The edge between level 1 and level L is drawn here (E_L).
+        % =====================================================================
+        \def\z{2*\zz}
+        \mgfoot{\z}
+        \foreach \i in {0,1,2,3} \foreach \j in {0,1} {
+                        \mgcell{\i*0.5}{\j*0.5}{0.5}{\z}{act}
+                }
+        \mgseg{0}{1}{2}{1}{\z}{redge}          % E_L along v=1
+        \mgseg{2}{0}{2}{1}{\z}{redge}          % E_L along u=2
+        \node[lev, anchor=east] at ({0+\sk*\H-0.35},{\mgd*\H+\z}) {$\mathcal{T}_L$};
+        \node[green!50!black, font=\large, scale=0.75, anchor=west] at ({2.15+\sk*0.5},{\mgd*0.5+\z}) {$E_\ell$};
+
+\end{tikzpicture}

@@ -48,7 +48,7 @@
 \usepackage{multicol}
 \usepackage{tikz}
 \usepackage{color}
-\usetikzlibrary{calc,positioning,arrows.meta,shapes.geometric}
+\usetikzlibrary{calc,positioning,arrows.meta,shapes.geometric,patterns}
 
 % transfer operator shorthands (from the papers' shared macros)
 \newcommand{\resth}[1]{\mathcal R_{#1}}
@@ -58,7 +58,7 @@
 
 % Title information
 \title[Multigrid all the way down]{Multigrid, All the Way Down:\\
-  Patch Smoothers with p-Multigrid Local Solvers\\ and a GPU-First FEM}
+  Patch Smoothers with p-Multigrid Local Solvers}
 
 \author[Wichrowski]{\underline{Michał Wichrowski}}
 \institute{Heidelberg University}
@@ -103,6 +103,13 @@
 \makeatother
 
 \begin{document}
+
+{
+\title{Reformulating High-Order Finite Elements\\ for Modern Accelerators}
+\begin{frame}
+    \titlepage
+\end{frame}
+}
 
 \begin{frame}
     \titlepage
@@ -528,8 +535,16 @@
 \end{frame}
 
 % ===========================================================================
-% PART IV : GPU / DDS
+% PART II : GPU-FIRST FINITE ELEMENTS (DSS, hanging nodes, DG, biharmonic)
 % ===========================================================================
+
+{
+\title{GPU-First Finite Elements}
+\subtitle{Cell-wise storage for continuous, discontinuous, and $C^1$ elements}
+\begin{frame}
+    \titlepage
+\end{frame}
+}
 
 \begin{frame}{Rewrite assumptions: what modern hardware wants}
     \textbf{Target: GPUs} (A100: 2\,TB/s DRAM, fp64 tensor cores)
@@ -650,44 +665,6 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}{Multigrid on top: hanging nodes for free}
-    Geometric multigrid on adaptive meshes\footnotemark[1]\,\footnotemark[2], cell-wise storage:
-    \begin{itemize}
-        \small
-        \item Classically: explicit constraint matrix $C_{HN}$, edge operators, special transfer
-        \item Cell-wise: constraint \emph{absorbed} --- $C_{HN} \mathcal P = \mathcal P$ \alert{resolves into an identity} in the
-              transfer
-        \item Only level-wise masking + DSS remains; \alert{Resolving hanging never required.}
-    \end{itemize}
-    \vfill
-    \begin{table}
-        \centering
-        \caption{Full solve throughput (Cartesian mesh, $p=3$, fp64, A100)}
-        \small
-        \vspace{-0.5em}
-        \begin{tabular}{lcc}
-            \toprule
-                                                     & \textbf{Solve [MDoF/s]} & to residual        \\
-            \midrule
-            Vertex-patch smoother                    & 116                     & $10^{-9}$          \\
-            This work, uniform mesh                  & 99.5                    & \alert{$10^{-14}$} \\
-            This work, adaptive mesh (hanging nodes) & 88.8                    & \alert{$10^{-14}$} \\
-            \bottomrule
-        \end{tabular}
-        \vspace{-0.5em}
-    \end{table}
-    \begin{itemize}
-        \small
-        \item On par with the patch smoother\footnotemark[3] --- while converging five orders further
-        \item Adaptivity (hanging nodes included) costs $\sim$10\%, not a rewrite
-    \end{itemize}
-    \footnotetext[1]{%
-        \parbox[t]{0.47\linewidth}{Wichrowski (2026), Coalesced MG\\[-0.15em]
-            \textsuperscript{2}Janssen and Kanschat (2011)}%
-        \hfill
-        \parbox[t]{0.47\linewidth}{\textsuperscript{3}Cui et al.\ (2025)}}
-\end{frame}
-
 \begin{frame}{The operators at the roofline}
     \begin{columns}[c]
         \begin{column}{0.56\textwidth}
@@ -708,7 +685,327 @@
             \end{itemize}
         \end{column}
     \end{columns}
-    x\end{frame}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% Hanging nodes
+% ---------------------------------------------------------------------------
+
+\begin{frame}{Adaptivity: what classical local multigrid needs}
+    \small
+    Local smoothing\footnote{Janssen and Kanschat (2011).}: level $\ell$ smooths only where level-$\ell$ cells exist;
+    cost $\propto$ \#active cells
+    \begin{center}
+        \resizebox{0.62\textwidth}{!}{\input{figures/fig_mg_levels.tex}}\\
+        {\scriptsize Active mesh (left) and its level meshes; refinement edge $E_\ell$ in green}
+    \end{center}
+    The classical implementation carries:
+    \begin{itemize}
+        \item hanging-node constraint matrix $C_{HN}$ inside every operator application
+        \item split level matrix: smooth with $A^{SS}$, \emph{edge operators} $A^{SE}, A^{ES}$ for the coupling
+        \item restriction through the transposed constraints $\mathcal R\, C_{HN}^T$
+    \end{itemize}
+    $\Rightarrow$ index lists, special cases, branches inside kernels \alert{--- exactly what a GPU hates}
+\end{frame}
+
+\begin{frame}{Why hanging nodes are gone}
+    \small
+    All three pieces turn into identities once vectors are cell-wise and residuals stay unassembled\footnote{Wichrowski
+        (2026), Coalesced MG on cell-wise storage.}:
+    \vspace{0.3em}
+    \begin{enumerate}
+        \item \textbf{Prolongation:} \quad $C_{HN}\,\mathcal P = \mathcal P$\\
+              a prolongated coarse field is \emph{already} continuous on the refinement edge --- nothing to enforce
+              \pause
+        \item \textbf{Restriction:} \quad $\mathcal R_{\text{cell}}$ applied to the \emph{unassembled} residual
+              $\;=\; \mathcal R\, C_{HN}^T$\\
+              plain tensor-product transfer, cell by cell; no constraints, no valence weights
+              \pause
+        \item \textbf{Edge operators:} \quad a pointwise $0/1$ mask on the smoother
+              \begin{itemize}
+                  \item full cell operator reads the edge values $u^E$ $\to$ applies $A^{SE}$ on the fly
+                  \item mask residual and correction on $E_\ell$ $\to$ relaxation with $A^{SS}$
+                  \item unmasked residual after smoothing carries $A^{ES}$ to the coarse level
+              \end{itemize}
+    \end{enumerate}
+    \pause
+    \begin{block}{Theorem}
+        The cell-wise V-cycle equals classical local multigrid \alert{iterate by iterate} --- and inherits its
+        convergence theory.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Bonus: the DSS does not need to know either}
+    \begin{columns}[c]
+        \begin{column}{0.5\textwidth}
+            \centering
+            \resizebox{\textwidth}{!}{\input{figures/fig_dss_lshaped.tex}}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \small
+            \begin{itemize}
+                \item The structured cascade picks exchange partners \emph{from the memory layout}, not from the mesh
+                \item At re-entrant corners of a level mesh it sums with inactive cells: \alert{wrong values} \pause
+                \item \dots but only on $E_\ell$ --- which the smoother mask discards anyway
+                \item[$\Rightarrow$] the \alert{topology-oblivious} kernel runs unchanged on adaptive meshes
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Multigrid results: adaptivity is (almost) free}
+    \small
+    Laplace, $p=3$, CG + V-cycle, masked point-Jacobi smoother
+    \vspace{-0.5em}
+    \begin{table}
+        \centering
+        \caption{CG iterations, cube}
+        \footnotesize
+        \begin{tabular}{lcccc|lcccc}
+            \toprule
+            uniform refinements & 5 & 6 & 7 & 8 & adaptive refinements & 1  & 2  & 3  & 4  \\
+            iterations          & 9 & 9 & 9 & 9 & iterations           & 10 & 10 & 10 & 10 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \vspace{-0.8em}
+    \begin{table}
+        \centering
+        \caption{Full solve throughput (Cartesian mesh, fp64, A100)}
+        \footnotesize
+        \begin{tabular}{lcc}
+            \toprule
+                                                     & \textbf{MDoF/s} & to residual        \\
+            \midrule
+            Vertex-patch smoother (Cui et al.\ 2025) & 116             & $10^{-9}$          \\
+            This work, uniform                       & 99.5            & \alert{$10^{-14}$} \\
+            This work, adaptive (hanging nodes)      & 88.8            & \alert{$10^{-14}$} \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \vspace{-0.8em}
+    \begin{itemize}
+        \item Grid-independent iteration counts, \alert{unchanged} by local refinement
+        \item Point-Jacobi on par with a patch smoother, converging five orders further; adaptivity costs $\sim$10\%
+    \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% DG with shadow cells
+% ---------------------------------------------------------------------------
+
+\begin{frame}{Same storage, discontinuous Galerkin}
+    SIPG on Cartesian cells: DG is cell-wise by nature --- the storage layout is a free tuning parameter
+    \vfill
+    \begin{block}{Hermite-type 1D basis: all face data in two layers}
+        \begin{itemize}
+            \small
+            \item Endpoint value and derivative \emph{are} coefficients: $u(0)=u_0$, $u'(0)=u_1$
+            \item Face trace = DoF layer 0, normal derivative = layer 1
+            \item Face coupling collapses to a symmetric $4\times 4$ stencil under $M\otimes M$ --- reads $2(p{+}1)^{d-1}$ values per
+                  side instead of $(p{+}1)^d$
+        \end{itemize}
+    \end{block}
+    \vfill
+    \begin{block}{Face sweeps without atomics}
+        \begin{itemize}
+            \small
+            \item One sweep per axis, each face evaluated \emph{once}, writing both neighbours
+            \item Race-free: lower face writes layers $\{0,1\}$, upper face $\{p{-}1,p\}$
+            \item With atomics instead: \alert{$-43\%$} throughput. Without: face kernel at \alert{81\% of peak bandwidth}
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}{Non-matching faces: shadow cells}
+    \begin{columns}[c]
+        \begin{column}{0.52\textwidth}
+            \centering
+            \resizebox{\textwidth}{!}{\input{figures/fig_dg_shadow.tex}}\\[0.3em]
+            {\scriptsize gray: shadow children; red: matching fine--shadow faces}
+        \end{column}
+        \begin{column}{0.46\textwidth}
+            \footnotesize
+            \begin{itemize}
+                \item Coarse cells at a refinement edge are refined \emph{virtually}
+                \item \textbf{Shadows} hold the prolonged parent: no own DoFs, no volume integral
+                \item Every face has a \alert{same-level partner}: one face kernel, no subface quadrature \pause
+                \item \textbf{Exact}, not approximate\footnote{Wichrowski (2026), Adaptive multilevel DG on GPUs.}:
+                      \[
+                          \mathcal G_{\text{sh}}^T\,\tilde A\,\mathcal G_{\text{sh}} = A
+                      \]
+                \item Cost: one cell-deep layer, surface-order
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Shadows are primal--dual too}
+    \begin{columns}[T]
+        \begin{column}{0.55\textwidth}
+            \small
+            Shadows are just another redundant copy:
+            \begin{itemize}
+                \item \textbf{primal}: shadow $=$ prolongation of its parent
+                \item \textbf{dual}: shadow holds fluxes destined for its parent
+            \end{itemize}
+            Same pairing identity as before:
+            \[
+                \langle \tilde f, \mathcal G_{\text{sh}} u \rangle = \langle \mathcal G_{\text{sh}}^T \tilde f, u\rangle
+            \]
+            $\Rightarrow$ CG \alert{never assembles} the shadows
+            \vspace{0.6em}
+
+            In the local V-cycle:
+            \begin{itemize}
+                \item shadows $=$ frozen inter-level Dirichlet data
+                \item zero on the way down, filled by prolongation on the way up
+                \item shadow assembly fused into the restriction
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.43\textwidth}
+            \centering
+            \includegraphics[width=0.9\textwidth]{figures/08A_adaptive_mesh_slice_g3_a3.png}\\
+            {\scriptsize Slice through a 3D mesh, three local refinements; shadows dashed red}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{DG results (SIPG, $p=3$, A100, fp64)}
+    \begin{table}
+        \centering
+        \caption{Local refinement on top of $6$ uniform refinements; rates per \emph{active} DoF}
+        \footnotesize
+        \begin{tabular}{c|rr|rrr}
+            \toprule
+                       &           &        & $Au$     & smoother & solve    \\
+            local ref. & cells     & CG it. & [GDoF/s] & [GDoF/s] & [MDoF/s] \\
+            \midrule
+            0          & 262,144   & 10     & 15.55    & 9.90     & 74.4     \\
+            1          & 295,632   & 12     & 13.66    & 5.11     & 57.5     \\
+            2          & 465,256   & 12     & 12.48    & 5.32     & 48.4     \\
+            3          & 1,158,200 & 12     & 11.53    & 5.43     & 42.2     \\
+            4          & 3,936,304 & 12     & 11.12    & 5.44     & 39.5     \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \begin{itemize}
+        \small
+        \item A refinement edge costs \alert{two iterations}; deeper refinement costs \alert{none}
+        \item Uniform $128^3$: \alert{89.6\,MDoF/s} to $10^{-10}$, cell-wise block-Jacobi smoother (vertex-patch IP
+              solver\footnote{Cui and Kanschat (2025), Multilevel IP methods on GPUs.}: 61.9\,MDoF/s to $10^{-8}$)
+        \item A patch smoother fits too: it only has to keep the shadows frozen
+    \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% Biharmonic
+% ---------------------------------------------------------------------------
+
+\begin{frame}{As promised: the biharmonic problem}
+    Clamped plate, $\Delta^2 u = f$, \alert{$H^2$-conforming} discretization\footnote{Wichrowski (2026), Matrix-free MG
+        for $H^2$-conforming biharmonic.}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \begin{block}{Tensor-product Hermite $\mathbb Q_3$}
+                \begin{itemize}
+                    \small
+                    \item value + derivative at each end (1D)
+                    \item $2^d = 8$ unknowns per vertex, $8$ per cell\\ ($C^0$ Lagrange $\mathbb Q_3$: $27$)
+                    \item continuity of $(u, \partial_n u)$ = equality of \alert{two DoF layers}
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Reused unchanged}
+                \begin{itemize}
+                    \small
+                    \item idempotent constraint $C$, never formed
+                    \item $C\mathcal P = \mathcal P$: prolongation sets the $C^1$ data on refinement edges
+                    \item mask covers both layers; DSS exchanges two layers
+                \end{itemize}
+            \end{block}
+        \end{column}
+    \end{columns}
+    \vfill
+    \pause
+    \begin{itemize}
+        \small
+        \item Only the smoother knows what ``continuity'' means:
+              \begin{itemize}
+                  \item Chebyshev--Jacobi, closed by one DSS
+                  \item multiplicative vertex patch: one $8\times 8$ solve per vertex, the \emph{same} inverse on the whole level
+              \end{itemize}
+        \item No hanging-node machinery for $C^1$ elements either
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Biharmonic operator: shaped for the tensor core}
+    \small
+    Hermite reflection symmetry: $(u_0,u_1,u_2,u_3) \mapsto (u_3,-u_2,-u_1,u_0)$\\
+    $\Rightarrow$ butterfly (sum/difference) splits each axis into even and odd halves
+    \vfill
+    \begin{table}
+        \centering
+        \caption{3D biharmonic operator, cubic Hermite, 4.2M cells (A100, fp64)}
+        \footnotesize
+        \begin{tabular}{lrr}
+            \toprule
+            Evaluation                  & bandwidth [GB/s] & [$10^9$ cells/s] \\
+            \midrule
+            Fast diagonalization        & 884              & 0.864            \\
+            Dense matrix--matrix        & 1149             & 1.122            \\
+            Even--odd, three axes       & 1454             & 1.420            \\
+            \alert{Even--odd, two axes} & \alert{1735}     & \alert{1.695}    \\
+            Even--odd, one axis         & 1697             & 1.657            \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \begin{itemize}
+        \item Stop after \emph{two} of three axes: the halves match the native $8$-wide fp64 MMA operand
+        \item \alert{85\% of peak bandwidth}; $1.96\times$ faster than fast diagonalization
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Biharmonic results (3D, cubic Hermite, A100, fp64)}
+    \begin{columns}[T]
+        \begin{column}{0.6\textwidth}
+            \begin{table}
+                \centering
+                \caption{Uniform refinement, Chebyshev--Jacobi V-cycle + CG}
+                \footnotesize
+                \setlength{\tabcolsep}{4pt}
+                \begin{tabular}{rrcc}
+                    \toprule
+                    cells     & $\|u-u_h\|_{L^2}$  & CG it. & Mcells/s     \\
+                    \midrule
+                    4,096     & $7.9\cdot 10^{-6}$ & 6      & 0.091        \\
+                    32,768    & $4.9\cdot 10^{-7}$ & 6      & 0.598        \\
+                    262,144   & $3.1\cdot 10^{-8}$ & 5      & 3.25         \\
+                    2,097,152 & $2.0\cdot 10^{-9}$ & 5      & \alert{4.23} \\
+                    \bottomrule
+                \end{tabular}
+            \end{table}
+            \vspace{-0.5em}
+            {\footnotesize Rate 4.0 ($=p+1$); 5--6 iterations}
+        \end{column}
+        \begin{column}{0.38\textwidth}
+            \centering
+            \includegraphics[width=0.48\textwidth]{figures/bih_ball.png}\hfill
+            \includegraphics[width=0.48\textwidth]{figures/bih_ring.png}\\
+            {\scriptsize Local refinement: ball, ring}
+        \end{column}
+    \end{columns}
+    \begin{itemize}
+        \small
+        \item vs.\ GPU tensor-product patch MG\footnote{Witte, Cui, Bonizzoni, and Kanschat (2025), $C^0$-IP, $\mathbb Q_3$, same
+                  GPU.}: \alert{$\approx 18\times$ per cell}, $\approx 5.3\times$ per unknown
+        \item Local refinement: iterations grow with the \emph{fraction of cells at a refinement edge} (octant $+1$, ball $+5$, ring
+              $+10$)
+        \item Both smoothers lose the \emph{same} iterations: a $C^1$ edge fixes two layers --- the cost is in the level
+              decomposition, not in the smoothing
+    \end{itemize}
+\end{frame}
 
 \begin{frame}{Implementation: Triton}
     The \emph{entire} solver stack is written in \alert{Triton}
@@ -734,40 +1031,417 @@
     None of the results on the previous slides are possible without this.
 \end{frame}
 
-% ===========================================================================
-% SCOREBOARD + CONCLUSIONS
-% ===========================================================================
-
 \begin{frame}{The scoreboard}
-    \begin{block}{Outperformed}
-        \begin{itemize}
-            \item[\checkmark] \textbf{SOTA patch solvers} (15 vs 158 iterations, 3D Kershaw) \pause
-            \item[\checkmark] \textbf{Hand-written CUDA kernels} (Cui at al.)
-            \item[\checkmark]\textbf{libCEED BP1}
-                  \pause
-            \item[\checkmark] \textbf{cuBLAS} (GEMM)
-        \end{itemize}
-    \end{block}
-    \pause
-    \vfill
-    \begin{block}{No longer needed}
-        \begin{itemize}
-            \item[$\varnothing$] \textbf{DoF indices}
-            \item[$\varnothing$] \textbf{Constraints}
-            \item[$\varnothing$] \textbf{Hanging nodes}
-        \end{itemize}
-    \end{block}
+    \begin{columns}[T]
+        \begin{column}{0.54\textwidth}
+            \begin{block}{Outperformed}
+                \begin{itemize}
+                    \small
+                    \item[\checkmark] \textbf{SOTA patch solvers} (15 vs 158 iterations, 3D Kershaw) \pause
+                    \item[\checkmark] \textbf{Hand-written CUDA kernels} (Cui et al.)
+                    \item[\checkmark] \textbf{libCEED BP1}
+                    \item[\checkmark] \textbf{GPU biharmonic MG} ($\approx 18\times$ per cell)
+                          \pause
+                    \item[\checkmark] \textbf{cuBLAS} (GEMM)
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.44\textwidth}
+            \pause
+            \begin{block}{No longer needed}
+                \begin{itemize}
+                    \small
+                    \item[$\varnothing$] \textbf{DoF indices}
+                    \item[$\varnothing$] \textbf{Constraints}
+                    \item[$\varnothing$] \textbf{Hanging nodes} (CG, DG, $C^1$)
+                    \item[$\varnothing$] \textbf{Edge operators}
+                    \item[$\varnothing$] \textbf{Atomics}
+                    \item[$\varnothing$] \textbf{Non-matching face kernels}
+                \end{itemize}
+            \end{block}
+        \end{column}
+    \end{columns}
     \vfill
     \centering
     % \emph{Triton (Python!) beating CUDA is not a typo --- it's a memory-traffic story.}
 \end{frame}
 
+% ===========================================================================
+% PART III : UNFITTED METHODS (CutFEM)
+% ===========================================================================
+
+{
+\title{Going General: Unfitted Methods}
+\subtitle{Patch-smoothed multigrid for CutFEM, and automatic differentiation straight into it}
+\begin{frame}
+    \titlepage
+\end{frame}
+}
+
+\begin{frame}{Why keep the Cartesian mesh?}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \small
+            Everything so far loves \alert{Cartesian cells}:
+            \begin{itemize}
+                \item no geometry data to stream
+                \item operators, faces, transfers:\\ products of \alert{1D matrices}
+                \item mesh hierarchy down to one cell
+            \end{itemize}
+            \vspace{0.5em}
+            \pause
+            \textbf{CutFEM:} keep the Cartesian background grid, let the boundary $\Gamma$ cut the cells
+            \begin{itemize}
+                \item geometry enters only through cut cells
+                \item the bulk keeps all the structure
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \centering
+            \vspace{0.5em}
+            \begin{tikzpicture}[scale=0.85]
+                \draw[step=1cm, gray, very thin] (-0.2,0) grid (5.2,3.2);
+                \node at (-0.35,2.5) {$\Gamma$};
+                \draw[line width=2pt, red, dashed] plot [smooth, tension=0.5] coordinates {(-0.2,2.3) (1,2.2) (2,2.5) (3,2.2)
+                        (4,1.5) (5.2,1.5)};
+                \node at (2.5,0.7) {$\Omega$};
+                \node at (3.2,2.7) {$\mathbb F_G$};
+                \foreach \x/\y in {0/2, 1/2, 2/2, 3/1, 3/2, 4/1}
+                    {\fill[blue, opacity=0.3] (\x,\y) rectangle (\x+1,\y+1);}
+                \foreach \x/\y in {0/0, 0/1, 2/1, 1/0, 1/1, 2/0, 3/0, 4/0}
+                    {\fill[green, opacity=0.3] (\x,\y) rectangle (\x+1,\y+1);}
+                \foreach \x/\y in {0/2, 1/2, 2/2, 2/1, 3/1, -1/2, 4/1}
+                    {\draw[blue, line width=1.5pt] (\x+1,\y) -- (\x+1,\y+1);}
+                \foreach \x/\y in {0/1, 1/1, 2/1, 3/0, 4/0, 3/1}
+                    {\draw[blue, line width=1.5pt] (\x,\y+1) -- (\x+1,\y+1);}
+            \end{tikzpicture}\\[0.3em]
+            {\scriptsize cut cells (blue), interior cells (green),\\ ghost-penalty faces $\mathbb F_G$ (thick)}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{CutFEM in one slide}
+    \small
+    Poisson, Dirichlet data imposed weakly (Nitsche) on the cut boundary $\Gamma$:
+    \begin{align*}
+        A_\ell(u,v) & = (\nabla u,\nabla v)_\Omega - (\partial_n u, v)_\Gamma - (u,\partial_n v)_\Gamma
+        + \tfrac{\gamma_D}{h}(u,v)_\Gamma                                                                    \\
+                    & \quad + \underbrace{\gamma\sum_{F\in\mathbb F_G}\sum_{k=1}^{p}\tfrac{h^{2k-1}}{(k!)^2}
+            \big(\llbracket\partial_n^k u\rrbracket, \llbracket\partial_n^k v\rrbracket\big)_F}_{\text{ghost penalty}}
+    \end{align*}
+    Cut cells can be \alert{arbitrarily small}; the \alert{ghost penalty} glues them to their neighbours:
+    stability independent of the cut.
+    \pause
+    \begin{block}{Ghost penalty on Cartesian cells = tensor product\footnote{Wichrowski (2026), Matrix-free ghost penalty
+                via tensor-product factorization.}}
+        \vspace{-1.2em}
+        \begin{gather*}
+            g_F(u,v) = v^T \bigl(G \otimes M \otimes M\bigr)\, u
+        \end{gather*}
+        \vspace{-1.8em}
+        \begin{itemize}
+            \item $G$: 1D ghost matrix on two cells, $M$: 1D mass matrix
+            \item $\mathcal O(p^{d+1})$ like the operator: matrix-free, any order
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+% tikz for the cut vertex patch (kept outside the frame)
+\newcommand{\cutpatchfigure}{%
+    \begin{tikzpicture}[scale=1.25,
+            dofD/.style={circle, fill=blue!80!black, inner sep=0pt, minimum size=5pt},
+            dofFR/.style={circle, fill=orange, draw=black, inner sep=0pt, minimum size=6pt},
+            dofOff/.style={circle, draw=black!60, fill=white, inner sep=0pt, minimum size=4pt}]
+        % active cells: cut (blue) and interior (green)
+        \foreach \x/\y in {0/0,1/0,2/0,0/1}
+            {\fill[green!60, opacity=0.35] (\x,\y) rectangle (\x+1,\y+1);}
+        \foreach \x/\y in {3/0,1/1,2/1,3/1,0/2,1/2,0/3}
+            {\fill[blue!60, opacity=0.3] (\x,\y) rectangle (\x+1,\y+1);}
+        \draw[gray, very thin] (0,0) grid (4,4);
+        % boundary Gamma
+        \draw[line width=1.8pt, red, dashed] (0,3.2) -- (4,0.4);
+        \node[red] at (3.75,0.95) {$\Gamma$};
+        \node at (0.5,0.5) {$\Omega$};
+        % full background patch around the exterior vertex v=(2,2)
+        \draw[black, line width=1.6pt] (1,1) rectangle (3,3);
+        \draw[pattern=north east lines, pattern color=gray] (2,2) rectangle (3,3);
+        % DoFs (Q2) of the patch region that exist on the active mesh
+        % classical Dirichlet space: nodes interior to the background patch
+        \foreach \i/\j in {1.5/1.5,2/1.5,2.5/1.5,1.5/2,2/2,2.5/2,1.5/2.5,2/2.5}
+            {\node[dofD] at (\i,\j) {};}
+        % extra full-residual DoFs: on the active boundary, supported only inside the patch
+        \foreach \i/\j in {1.5/3,2/3}
+            {\node[dofFR] at (\i,\j) {};}
+        % existing DoFs on the patch boundary that are not updated
+        \foreach \i/\j in {1/1,1.5/1,2/1,2.5/1,3/1,1/1.5,3/1.5,1/2,3/2,1/2.5,1/3}
+            {\node[dofOff] at (\i,\j) {};}
+        \draw[red!80!black, line width=1.2pt] (2,2) circle (0.12);
+        \node[anchor=south west, font=\scriptsize] at (2.02,2.02) {$v$};
+    \end{tikzpicture}%
+}
+
+\begin{frame}{Vertex-patch smoothing on a cut mesh}
+    \begin{columns}[c]
+        \begin{column}{0.42\textwidth}
+            \centering
+            \resizebox{\textwidth}{!}{\cutpatchfigure}\\[0.2em]
+            {\scriptsize
+            \tikz\node[circle, fill=blue!80!black, inner sep=0pt, minimum size=5pt]{}; classical (Dirichlet) \quad
+            \tikz\node[circle, fill=orange, draw=black, inner sep=0pt, minimum size=6pt]{}; + full residual\\
+            \tikz\node[circle, draw=black!60, fill=white, inner sep=0pt, minimum size=4pt]{}; not updated \quad
+            hatched: inactive cell}
+        \end{column}
+        \begin{column}{0.56\textwidth}
+            \footnotesize
+            \textbf{Which patches?}
+            \begin{itemize}
+                \item every vertex in $\Omega$
+                \item \emph{and} every exterior vertex $v$ touching a cut cell (else its DoFs are never smoothed):
+                      \alert{partial} patches, fewer than $2^d$ cells
+            \end{itemize}
+            \vspace{0.3em}
+            \textbf{Which DoFs?}
+            \begin{itemize}
+                \item \emph{classical}: interior of the full background patch
+                \item \emph{full residual}: \alert{every DoF whose active support lies in the patch} --- no artificial
+                      Dirichlet condition at the edge of the active domain
+            \end{itemize}
+            \vspace{0.3em}
+            Local solve: same stabilized operator, same global residual
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Sweeping the patches near the boundary}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \small
+            \textbf{Colouring breaks at the boundary}
+            \begin{itemize}
+                \item fitted mesh: same-colour patches do not interact
+                \item CutFEM: the ghost penalty \alert{couples them} along the cut strip
+                \item fix: damping, or stride-$3$ colours on the strip
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \small
+            \textbf{Sweep the strip more often}
+            \begin{itemize}
+                \item repeat the cut patches $n_c$ times
+                \item strip work $\mathcal O(h^{-(d-1)})$, bulk $\mathcal O(h^{-d})$: \alert{asymptotically free}
+            \end{itemize}
+        \end{column}
+    \end{columns}
+    \pause
+    \begin{table}
+        \centering
+        \caption{GMRES iterations, 2D disc, $L=5$, $\gamma=0.1$}
+        \footnotesize
+        \begin{tabular}{lccccccc}
+            \toprule
+                                    & $\mathbb Q_1$ & $\mathbb Q_2$ & $\mathbb Q_3$ & $\mathbb Q_4$ & $\mathbb Q_5$ & $\mathbb Q_6$ & $\mathbb Q_7$ \\
+            \midrule
+            classical, $n_c=1$      & 8             & 9             & 17            & 34            & 72            & 175           & $>$200        \\
+            full residual, $n_c=1$  & 7             & 6             & 10            & 20            & 44            & 97            & $>$200        \\
+            \midrule
+            full residual, $n_c=3$  & 6             & 4             & 6             & 12            & 26            & 59            & 136           \\
+            full residual, $n_c=30$ & 6             & 4             & 4             & 4             & 9             & 21            & 48            \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \begin{itemize}
+        \small
+        \item Full residual: $1.6$--$1.8\times$ fewer iterations; more strip sweeps help --- but $p$ still hurts
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{What can be proven (no proofs today)}
+    Levels are \emph{non-inherited}: every level has its own active mesh and its own ghost faces;
+    energy lives on $\Omega$, functions on $\Omega_\ell \supseteq \Omega$
+    \vfill
+    \begin{block}{Theorems\footnote{Wichrowski (2026), A multigrid method for CutFEM and its convergence.}}
+        \begin{itemize}
+            \item Two-level convergence \alert{independent of $h$ and of how $\Gamma$ cuts the mesh}
+            \item W-cycle: the same, under a smallness assumption on the two-level rate
+            \item Parallel variants covered: damped colouring, stride-$3$ strip colouring
+        \end{itemize}
+    \end{block}
+    \vfill
+    \pause
+    \begin{block}{The price: the polynomial degree}
+        \begin{itemize}
+            \item Constants grow like $\exp(2p\log p)$ --- traced to the \alert{ghost-penalty energy}
+            \item The loss lives in the \alert{boundary strip}: its contraction $\sigma(p) < 1$ uniformly in $h$ and the cut
+            \item The ghost penalty is the knob to turn
+        \end{itemize}
+    \end{block}
+\end{frame}
+
+\begin{frame}{The ghost penalty is a design variable}
+    \begin{table}
+        \centering
+        \caption{GMRES iterations vs.\ global ghost weight $\gamma$ (2D disc, $L=5$, multiplicative, $n_c=1$)}
+        \footnotesize
+        \setlength{\tabcolsep}{4pt}
+        \begin{tabular}{lcccccccccc}
+            \toprule
+            $\gamma$      & $1$  & $10^{-1}$ & $10^{-2}$ & $10^{-3}$ & $10^{-4}$ & $10^{-5}$ & $10^{-6}$ & $10^{-7}$ & $10^{-8}$ & $10^{-9}$ \\
+            \midrule
+            $\mathbb Q_3$ & $19$ & $10$      & $7$       & $5$       & $6$       & $4$       & $4$       & $4$       & $4$       & $4$       \\
+            $\mathbb Q_4$ & $42$ & $21$      & $13$      & $9$       & $6$       & $4$       & $4$       & $3$       & $3$       & $3$       \\
+            $\mathbb Q_5$ & $95$ & $42$      & $25$      & $17$      & $12$      & $8$       & $7$       & $5$       & $4$       & $3$       \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \pause
+    \small
+    How low can $\gamma$ go? A two-cell model gives two scales:
+    \begin{itemize}
+        \item \textbf{visibility}: a degree-$p$ cut mode sees the penalty only when $\gamma \gtrsim \kappa^{2p-1}$
+              --- \alert{exponentially small}
+        \item \textbf{coercivity}: the form stays semidefinite only for $\gamma \ge \gamma_{\lim}(p) = \frac{1}{\gamma_D - p^2}
+                  \sim p^{-2}$
+        \item[$\Rightarrow$] incompatible as $p$ grows; practical choice: \alert{shed the penalty like $p^{-2}$}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Results: shedding the ghost penalty}
+    \begin{table}
+        \centering
+        \caption{GMRES iterations on the $d$-ball, semi-multiplicative sweep, $n_c = 2$:\\
+            fixed $\gamma=0.1$ $\;\to\;$ degree-dependent $\gamma(p)=1/(\gamma_D-p^2)$}
+        \footnotesize
+        \begin{tabular}{cc|ccccc}
+            \toprule
+               & $L$ & $\mathbb Q_1$ & $\mathbb Q_2$ & $\mathbb Q_3$ & $\mathbb Q_4$ & $\mathbb Q_5$ \\
+            \midrule
+               & $4$ & $6\to6$       & $5\to4$       & $6\to4$       & $13\to8$      & $26\to16$     \\
+            2D & $6$ & $6\to6$       & $4\to4$       & $6\to5$       & $13\to8$      & $27\to15$     \\
+               & $8$ & $6\to6$       & $5\to4$       & $9\to6$       & $21\to12$     & $50\to25$     \\
+            \midrule
+            3D & $3$ & $6\to6$       & $7\to6$       & $12\to9$      & $26\to18$     & $57\to36$     \\
+               & $5$ & $6\to6$       & $7\to6$       & $13\to10$     & ---           & ---           \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \begin{itemize}
+        \small
+        \item Essentially level-independent through $\mathbb Q_3$; iterations \alert{roughly halved} at high degree
+        \item $p$-dependence \emph{reduced}, not removed --- a sharp $p$-estimate for the strip is open
+        \item Low-order: $6$ iterations, whatever the cut
+    \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% AD -> CutFEM
+% ---------------------------------------------------------------------------
+
+\begin{frame}{Finite strain: from an energy straight to CutFEM}
+    \small
+    \textbf{One} augmented energy\footnote{Wichrowski and Noomen (2026), A unified CutFEM formulation for finite-strain
+        elasticity.} (Nitsche weight $\eta(\bar u)$ frozen at the current iterate):
+    \begin{align*}
+        \mathcal E_{\text{tot}}(u) = {} & \int_\Omega \Psi(F)\,dV - \text{loads}            \\
+                                        & \underbrace{-\int_{\Gamma} n\cdot P(u)\cdot u\,dS
+            + \int_{\Gamma}\tfrac{\gamma_D\,\eta(\bar u)}{2h}|u|^2 dS}_{\text{Nitsche}}
+        + \underbrace{\tfrac{\gamma_A}{2}\sum_{F}g_F(u,u)}_{\text{ghost penalty}}
+    \end{align*}
+    \begin{center}
+        \begin{tikzpicture}[node distance=0.6cm and 0.9cm,
+            box/.style={draw, rounded corners, thick, align=center, inner sep=3pt, font=\small},
+            arr/.style={-{Latex[length=2mm]}, thick}]
+            \node[box, fill=orange!20] (psi) {$\Psi(F)$\\ \scriptsize scalar energy};
+            \node[box, fill=blue!10, right=of psi] (ad) {AD\\ \scriptsize (AceGen)};
+            \node[box, right=of ad] (PL) {$P = \dfrac{\partial\Psi}{\partial F}$,\quad
+                $\mathbb L = \dfrac{\partial^2\Psi}{\partial F^2}$};
+            \node[box, fill=green!15, right=of PL] (res) {residual\\ + tangent};
+            \draw[arr] (psi) -- (ad);
+            \draw[arr] (ad) -- (PL);
+            \draw[arr] (PL) -- (res);
+        \end{tikzpicture}
+    \end{center}
+    \begin{itemize}
+        \footnotesize
+        \item Residual = exact first variation; tangent = symmetric quasi-Newton (drops one $\partial^3\Psi$ term)
+        \item Nitsche weight read off the AD tensor: $\eta = \max\{2\mu,\ \tfrac12\|\mathbb L\|_1\}$
+        \item \alert{New material = one new line}: neo-Hookean $\to$ isochoric/volumetric split, same code path
+        \item Proven: cut-independent coercivity, $\operatorname{cond} = \mathcal O(h^{-2})$, quasi-optimal error
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Finite strain CutFEM: results}
+    \begin{columns}[c]
+        \begin{column}{0.38\textwidth}
+            \centering
+            \includegraphics[width=0.6\linewidth]{figures/ball_ref3_load_05.png}\hfill
+            \includegraphics[width=0.3\linewidth]{figures/pole_def_r3.png}\\
+            {\scriptsize Deformed disc and pole}
+        \end{column}
+        \begin{column}{0.6\textwidth}
+            \centering
+            \begin{tikzpicture}
+                \begin{semilogyaxis}[
+                        width=0.95\textwidth, height=0.62\textheight,
+                        title={Neo-Hookean disc, load factor 0.5}, xlabel={refinements}, ylabel={$L^2$ difference to fitted},
+                        xtick={1,2,3,4,5}, xmax=5.2,
+                        legend pos=south west, legend cell align=left,
+                        legend style={font=\tiny}, every axis/.append style={font=\scriptsize},
+                        grid=major, clip=false]
+                    \addplot[blue, thick, mark=*] coordinates {(1,9.41573) (2,6.07453) (3,3.25052) (4,2.64941) (5,1.48594)};
+                    \addlegendentry{$p=1$}
+                    \addplot[red, thick, mark=square*] coordinates {(1,14.2025) (2,2.77918) (3,0.374031) (4,0.0514442) (5,0.00532243)};
+                    \addlegendentry{$p=2$}
+                    \addplot[teal, thick, mark=triangle*] coordinates {(1,6.41491) (2,0.561008) (3,0.028134) (4,0.00154552) (5,8.00081e-05)};
+                    \addlegendentry{$p=3$}
+                    \addplot[gray, dashed, domain=1:5, samples=2] {40*8^(-x)} node[pos=1, right, font=\scriptsize] {$h^{3}$};
+                    \addplot[gray, dashed, domain=1:5, samples=2] {8*16^(-x)} node[pos=1, right, font=\scriptsize] {$h^{4}$};
+                \end{semilogyaxis}
+            \end{tikzpicture}
+        \end{column}
+    \end{columns}
+    \begin{itemize}
+        \footnotesize
+        \item Optimal $h^{p+1}$ for $p=2,3$; Newton needs at most one iteration more than on a fitted mesh ($p \ge 2$)
+        \item Grid shifted through tiny cuts: condition number varies by at most $3.2\times$, no trend
+        \item Corners cap the rate for fitted \emph{and} unfitted meshes alike; local refinement restores it
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Going general: takeaways}
+    \begin{itemize}
+        \item The \alert{Cartesian background} keeps the tensor structure: ghost penalty = 1D matrices, $\mathcal O(p^{d+1})$
+        \item Vertex-patch multigrid for CutFEM
+              \begin{itemize}
+                  \item partial patches at exterior vertices, \alert{full-residual} local spaces
+                  \item provably robust in $h$ and in the cut position
+                  \item $p$-dependence confined to the boundary strip; shed the ghost penalty $\sim p^{-2}$
+              \end{itemize}
+        \item \alert{AD $\to$ CutFEM}: write $\Psi$, get a finite-strain unfitted solver
+              \begin{itemize}
+                  \item any hyperelastic model, same code
+                  \item optimal rates, cut-independent conditioning
+              \end{itemize}
+    \end{itemize}
+    \vfill
+    \pause
+    \begin{block}{Next}
+        Finite-strain CutFEM is solved with a sparse direct solver today --- the patch multigrid and the cell-wise GPU
+        storage are the obvious next step.
+    \end{block}
+\end{frame}
+
+% ===========================================================================
+% CONCLUSIONS
+% ===========================================================================
+
 \begin{frame}{Conclusions}
     \begin{itemize}
-        \item One inexact local p-MG V-cycle gives \alert{p- and h-robust} patch smoothing
-        \item \alert{Stokes}: one Braess--Sarazin step suffices, even at $10^6$ viscosity contrast
-        \item \alert{Assembly-free Krylov}; hanging-node constraints become identities
+        \item One inexact local p-MG V-cycle gives \alert{p- and h-robust} patch smoothing; \alert{Stokes} with one Braess--Sarazin
+              step
+        \item \alert{Assembly-free Krylov} on cell-wise storage; hanging nodes become identities --- for CG, DG (shadow
+              cells), and $C^1$ biharmonic
         \item Triton reaches the roofline and tensor cores, \alert{beating CUDA, libCEED, and cuBLAS}
+        \item CutFEM: \alert{cut-robust} patch multigrid; \alert{AD} gives finite-strain CutFEM for any $\Psi$
     \end{itemize}
     \vfill
 
@@ -788,10 +1462,10 @@
 \begin{frame}{Some stuff I did...}
     \scriptsize
     \begin{columns}[T,onlytextwidth]
-        \begin{column}{0.49\textwidth}
+        \begin{column}{0.6\textwidth}
             {\centering\textbf{2026}\par}
             \begin{itemize}
-                \setlength{\itemsep}{0.35em}
+                \setlength{\itemsep}{0.2em}
                 \item[\textbullet] [Wichrowski \& Ajith] SBM--Stokes: block preconditioning
                 \item[\textbullet] [Wichrowski \& Noomen] CutFEM: hyperelasticity and adaptivity
                 \item[\textbullet] \textbf{[Wichrowski] Coalesced MG on cell-wise storage}
@@ -799,9 +1473,12 @@
                 \item[\textbullet] \textbf{[Wichrowski] Stokes patch smoothers via local p-MG}
                 \item[\textbullet] [Wichrowski \& Ajith] Geometric MG for SBM
                 \item[\textbullet] [Wichrowski] Matrix-free CutFEM: ghost penalties
+                \item[\textbullet] \textbf{[Wichrowski] Adaptive multilevel DG on GPUs (shadow cells)}
+                \item[\textbullet] \textbf{[Wichrowski] Matrix-free MG for $H^2$-conforming biharmonic}
+                \item[\textbullet] \textbf{[Wichrowski] Multigrid for CutFEM and its convergence}
             \end{itemize}
         \end{column}
-        \begin{column}{0.49\textwidth}
+        \begin{column}{0.38\textwidth}
             {\centering\textbf{2025}\par}
             \begin{itemize}
                 \setlength{\itemsep}{0.35em}

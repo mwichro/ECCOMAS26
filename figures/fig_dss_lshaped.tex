@@ -1,0 +1,132 @@
+% Failure of the structured DSS cascade at a re-entrant (L-shaped) corner of a
+% refined region on a level mesh (flat top view). The geometry is the level mesh
+% T_1 of the local-multigrid figure: a rectangular domain whose level-ell active
+% cells form an L, leaving a re-entrant coarse pocket with no active level-ell cell.
+% The structured cascade sweeps along rows and columns and exchanges face data
+% across every interior interface -- including those on the refinement edge E_ell,
+% where the neighbor is inactive. Those exchanges (orange, crossed) produce
+% incorrect sums on the hanging interfaces.
+\def\egap{4pt}   % gap at coarse nodes / inward shift of the corner dot
+\def\agap{8pt}   % trim at each end of the cascade-exchange arrows
+\def\xsz{0.07}   % half-size of the red "invalid sum" crosses
+\begin{tikzpicture}[
+        scale=0.75,
+        act/.style={fill=gray!25, draw=black, thin},      % active fine cell
+        foot/.style={draw=black!55, line width=0.8pt, dashed}, % domain outline
+        redge/.style={green!50!black, line width=1.9pt,
+                        shorten >=\egap, shorten <=\egap},        % refinement edge E_ell
+        bad/.style={{Latex[length=2.2mm]}-{Latex[length=2.2mm]},
+        orange!85!black, line width=1pt,
+        shorten >=\agap, shorten <=\agap},         % offending exchange
+        good/.style={{Latex[length=2mm]}-{Latex[length=2mm]},
+        black, line width=0.8pt,
+        shorten >=\agap, shorten <=\agap},         % valid exchange
+        miss/.style={{Latex[length=2mm]}-{Latex[length=2mm]},
+        red, line width=0.8pt, dashed,
+        shorten >=\agap, shorten <=\agap},         % non-existent exchange
+        lab/.style={font=\scriptsize}, ]
+
+        % --- active (shaded) fine cells of the L-shaped level-ell region ---
+        % bottom block [0,4]x[0,2] plus the top-left cell-strip [0,2]x[2,4]
+        \foreach \c/\r in {0/0,1/0,2/0,3/0, 0/1,1/1,2/1,3/1, 0/2,1/2, 0/3,1/3}
+        \filldraw[act] (\c,\r) rectangle (\c+1,\r+1);
+
+        % --- domain (macro-block) outline, rectangular and dashed (as level T_1) ---
+        \draw[foot] (0,0) rectangle (6,4);
+        \node[lab, anchor=south west] at (0,4.08) {$\mathcal{T}_\ell$};
+
+        % --- refinement edge E_ell, broken into cell-wise pieces (gap at nodes) ---
+        \foreach \y in {0,1} { \draw[redge] (4,\y) -- (4,\y+1); }   % along u=4
+        \foreach \x in {2,3} { \draw[redge] (\x,2) -- (\x+1,2); }   % along v=2
+        \foreach \y in {2,3} { \draw[redge] (2,\y) -- (2,\y+1); }   % along u=2
+        \node[lab, green!50!black, anchor=west] at (2.1,3.55) {$E_\ell$};
+
+        % --- the three DOF markers sitting in the active cells around the
+        % re-entrant corner (2,2): a dot, a square and a triangle, each just
+        % inside its own cell. {cx}{cy}{off}{s} = corner, inward offset, size. ---
+        \newcommand{\hangmarkers}[4]{%
+                % dot (red)      -- lower-left cell
+                \fill[red]  ($(#1,#2)+(-#3,-#3)$) circle (#4);
+                % square (blue)  -- lower-right cell
+                \fill[blue] ($(#1,#2)+(#3-#4,-#3-#4)$) rectangle ($(#1,#2)+(#3+#4,-#3+#4)$);
+                % triangle (teal)-- upper-left cell
+                \fill[teal] ($(#1,#2)+(-#3,#3+1.15*#4)$)
+                -- ($(#1,#2)+(-#3-#4,#3-#4)$)
+                -- ($(#1,#2)+(-#3+#4,#3-#4)$) -- cycle;
+        }
+        \hangmarkers{2}{2}{\egap}{2.4pt}
+        % small circle around the cluster -> magnified in the close-up on the right
+        \draw[black, thick,dashed] (2,2) circle (0.32);
+
+        % small red cross marking an incorrect hanging-interface sum
+        \newcommand{\wrong}[2]{%
+                \draw[red, line width=1pt] (#1-\xsz,#2-\xsz) -- (#1+\xsz,#2+\xsz);
+                \draw[red, line width=1pt] (#1-\xsz,#2+\xsz) -- (#1+\xsz,#2-\xsz);
+        }
+        % --- offending structured-cascade exchanges crossing E_ell into the pocket ---
+        % x-sweep exchanges crossing u=2
+        \draw[bad] (1.5,2.5) -- (2.5,2.5);   \wrong{2}{2.5}
+        \draw[bad] (1.5,3.5) -- (2.5,3.5);   \wrong{2}{3.5}
+        % y-sweep exchanges crossing v=2
+        \draw[bad] (2.5,1.5) -- (2.5,2.5);   \wrong{2.5}{2}
+        \draw[bad] (3.5,1.5) -- (3.5,2.5);   \wrong{3.5}{2}
+        % x-sweep exchanges crossing u=4 (two bottom-right cells)
+        \draw[bad] (3.5,0.5) -- (4.5,0.5);   \wrong{4}{0.5}
+        \draw[bad] (3.5,1.5) -- (4.5,1.5);   \wrong{4}{1.5}
+
+        % --- valid exchanges across interior faces between two active cells ---
+        % (black, every other face) -- x-faces centred on a vertical face at u=#1
+        \newcommand{\xex}[2]{\draw[good] (#1-0.5,#2) -- (#1+0.5,#2);}
+        % y-faces centred on a horizontal face at v=#2
+        \newcommand{\yex}[2]{\draw[good] (#1,#2-0.5) -- (#1,#2+0.5);}
+        % vertical faces (x-exchanges) between horizontally adjacent active cells
+        \xex{1}{0.5} \xex{2}{0.5} \xex{3}{0.5}
+        \xex{1}{1.5} \xex{2}{1.5} \xex{3}{1.5}
+        \xex{1}{2.5} \xex{1}{3.5}
+        % horizontal faces (y-exchanges) between vertically adjacent active cells
+        \yex{0.5}{1} \yex{1.5}{1} \yex{2.5}{1} \yex{3.5}{1}
+        \yex{0.5}{2} \yex{1.5}{2}
+        \yex{0.5}{3} \yex{1.5}{3}
+
+        % =====================================================================
+        % CLOSE-UP of the circled re-entrant corner, illustrating the failing
+        % exchange: three active cells meet at the corner, the fourth quadrant
+        % is the inactive pocket. The cascade still tries to sum a contribution
+        % across the two pocket-facing faces (E_ell) -> incorrect.
+        % =====================================================================
+        \begin{scope}[shift={(8.6,2.0)}, scale=2.05]
+                % clip the magnified view to a circular lens
+                \begin{scope}
+                        \clip (0,0) circle (1.0);
+                        % three active quadrant cells (corner at local origin)
+                        \filldraw[act] (-1,-1) rectangle (0, 0);   % lower-left  (dot)
+                        \filldraw[act] ( 0,-1) rectangle (1, 0);   % lower-right (square)
+                        \filldraw[act] (-1, 0) rectangle (0, 1);   % upper-left  (triangle)
+                        % upper-right quadrant: inactive pocket (blank, dashed outline)
+                        \draw[foot] (0,0) rectangle (1,1);
+                        \node[lab, align=center, gray!45!black] at (0.5,0.5)
+                        {inactive\\pocket};
+                        % refinement edge along the two pocket-facing faces
+                        \draw[redge] (0,0) -- (1,0);
+                        \draw[redge] (0,0) -- (0,1);
+                        % valid exchanges along the principal axes (black, solid)
+                        \draw[good] (-0.30,-0.30) -- ( 0.30,-0.30);   % circle <-> square (x)
+                        \draw[good] (-0.30,-0.30) -- (-0.30, 0.30);   % circle <-> triangle (y)
+                        % non-existent exchanges reaching into the empty pocket (red dashed)
+                        \draw[miss] (-0.30, 0.30) -- ( 0.30, 0.30);   % triangle <-> (missing)
+                        \draw[miss] ( 0.30,-0.30) -- ( 0.30, 0.30);   % square   <-> (missing)
+                        % cross out the invalid exchanges at their midpoints
+                        \wrong{0}{0.30}
+                        \wrong{0.30}{0}
+                        % enlarged DOF markers (drawn last, on top of the arrows)
+                        \hangmarkers{0}{0}{0.30}{0.06}
+                \end{scope}
+                % circular lens border
+                \draw[black, thick, dashed] (0,0) circle (1.0);
+        \end{scope}
+
+        % curved "zoom" arrow from the small circle up to the enlarged lens
+        \draw[-{Latex[length=3mm]}, thick]
+        (2.226,2.226) to[out=65, in=160] (6.6,3.);
+
+\end{tikzpicture}
