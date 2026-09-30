@@ -119,6 +119,46 @@
 % PART I : MOTIVATION
 % ===========================================================================
 
+\begin{frame}{What is multigrid? The two-level method}
+    \small
+    Solve $Au = b$ on a fine mesh. A cheap relaxation (Jacobi, Gauss--Seidel, patch solves) as a \alert{smoother}: kills the oscillatory error fast.
+    \vspace{-0.2em}
+    \begin{columns}[c]
+        \begin{column}{0.46\textwidth}
+            \begin{enumerate}
+                \setlength{\itemsep}{0.15em}
+                \item \textbf{Pre-smooth} on the fine mesh\\ {\scriptsize $u \leftarrow u + S(b - Au)$}
+                \item \textbf{Restrict} the residual\\ {\scriptsize $r_H = \mathcal R\,(b - Au)$}
+                \item \textbf{Coarse solve} $A_H e_H = r_H$\\ {\scriptsize smooth error is cheap to resolve there}
+                \item \textbf{Prolongate \& correct}\\ {\scriptsize $u \leftarrow u + \mathcal P e_H$}
+                \item \textbf{Post-smooth}
+            \end{enumerate}
+        \end{column}
+        \begin{column}{0.52\textwidth}
+            \centering
+            \begin{tikzpicture}[scale=0.95, font=\scriptsize]
+                % fine level
+                \foreach \i in {0,...,8} \draw[gray!70] (\i*0.4,0) -- (\i*0.4,0.5);
+                \draw[gray!70] (0,0) rectangle (3.2,0.5);
+                \node[anchor=west] at (3.35,0.25) {fine};
+                % coarse level
+                \foreach \i in {0,...,4} \draw[gray!70] (\i*0.8,-1.8) -- (\i*0.8,-1.3);
+                \draw[gray!70] (0,-1.8) rectangle (3.2,-1.3);
+                \node[anchor=west] at (3.35,-1.55) {coarse};
+                % arrows
+                \draw[-{Latex[length=2mm]}, thick, blue!70!black] (1.1,-0.05) -- node[left]{$\mathcal R\,r$} (1.1,-1.25);
+                \draw[-{Latex[length=2mm]}, thick, orange!80!black] (2.1,-1.25) -- node[right]{$\mathcal P e_H$} (2.1,-0.05);
+                % smoothing loops
+                \draw[-{Latex[length=1.6mm]}, thick] (0.15,0.6) arc (200:-20:0.25) node[midway, above=6pt]{smooth};
+                \node[align=center] at (1.6,-2.25) {\emph{``and how do we solve the coarse problem?''}\\ \alert{recurse} $\Rightarrow$ V-cycle};
+            \end{tikzpicture}
+        \end{column}
+    \end{columns}
+    \vspace{0.2em}
+    Everything here is an \alert{operator--vector product}: $Au$, $\mathcal R r$, $\mathcal P e_H$.\alert{No matrix is ever assembled or stored}.\\
+    \alert{Payoff:} $\mathcal O(N)$ per cycle, iteration count \alert{independent of the mesh size}.
+\end{frame}
+
 \begin{frame}{Setting: high-order FEM + geometric multigrid}
     \begin{itemize}
         \item $\mathbb Q_p$ \alert{tensor-product} elements, mesh hierarchy $\mesh_1 \sqsubset \dots \sqsubset
@@ -131,8 +171,8 @@
     \begin{block}{Vertex patch (Schwarz) smoothers}
         \begin{itemize}
             \item Overlapping subspace correction on patches of $2^d$ cells around each vertex
-            \item Robust in the polynomial degree $p$\footnote{Pavarino (1993), Additive Schwarz methods for the $p$-version finite
-                      element method, \emph{Numer. Math.}}
+            \item Robust in the polynomial degree\footnote{Pavarino (1993), Additive Schwarz methods for the $p$-version finite element
+                      method, \emph{Numer. Math.}} $p$
             \item Excellent data locality --- great fit for modern hardware
             \item Handle Stokes\footnote{Wichrowski (2026), Towards matrix-free patch smoothers for the Stokes problem,
                       arXiv:2601.13230.}, CutFEM\footnote{Wichrowski (2026), A multigrid method for CutFEM and its convergence,
@@ -480,20 +520,18 @@
         \small
         \begin{tabular}{lccc}
             \toprule
-            \textbf{Local solver}         & \textbf{Rel.\ time} & \textbf{Rel.\ FLOPs} & \textbf{GFLOP/s} \\
+            \textbf{Local solver}      & \textbf{Rel.\ time} & \textbf{Rel.\ FLOPs} & \textbf{GFLOP/s} \\
             \midrule
-            V-cycle (Jacobi)              & 3.39                & 2.27                 & 15.1             \\
-            \alert{Half V-cycle (Jacobi)} & \alert{2.01}        & 1.17                 & 13.2             \\
-            V-cycle (Cart.-reinforced)    & 8.68                & 3.67                 & 9.59             \\
-            Half V-cycle (Cart.-reinf.)   & 4.67                & 1.87                 & 9.08             \\
+            \alert{V-cycle (Jacobi)}   & \alert{3.39}        & 2.27                 & \alert{15.1}     \\
+            V-cycle (Cart.-reinforced) & 8.68                & 3.67                 & 9.59             \\
             \midrule
-            Fast diagonalization          & 2.60                & \alert{0.68}         & 5.95             \\
+            Fast diagonalization       & 2.60                & \alert{0.68}         & 5.95             \\
             \bottomrule
         \end{tabular}
     \end{table}
     \begin{itemize}
-        \item Half V-cycle Jacobi is \alert{faster than fast diagonalization}
-        \item  while doing \alert{$1.7\times$ more FLOPs}: throughput beats operation count
+        \item One inexact V-cycle costs $\sim$3 operator applications --- \alert{the same ballpark as fast diagonalization}
+        \item while doing \alert{$3.3\times$ more FLOPs} at \alert{$2.5\times$ the throughput}: throughput beats operation count
         \item FLOPs are cheap; memory traffic is not --- a recurring theme today
     \end{itemize}
 \end{frame}
@@ -565,7 +603,7 @@
     \begin{block}{My answer: cell-wise vector as persistent storage}
         \begin{itemize}
             \item DG-like storage for CG: DoFs duplicated across interfaces
-            \item Every access coalesced --- no atomics
+            \item Every access coalesced; no atomics
             \item Price: up to $8\times$ memory at $p=1$, shrinking fast with $p$
         \end{itemize}
     \end{block}
@@ -691,69 +729,25 @@
     \end{columns}
 \end{frame}
 
-% ---------------------------------------------------------------------------
-% Hanging nodes
-% ---------------------------------------------------------------------------
-
-\begin{frame}{Adaptivity: what classical local multigrid needs}
-    \small
-    Local smoothing\footnote{Janssen and Kanschat (2011).}: level $\ell$ smooths only where level-$\ell$ cells exist;
-    cost $\propto$ \#active cells
-    \begin{center}
-        \resizebox{0.62\textwidth}{!}{\input{figures/fig_mg_levels.tex}}\\
-        {\scriptsize Active mesh (left) and its level meshes; refinement edge $E_\ell$ in green}
-    \end{center}
-    The classical implementation carries:
-    \begin{itemize}
-        \item hanging-node constraint matrix $C_{HN}$ inside every operator application
-        \item split level matrix: smooth with $A^{SS}$, \emph{edge operators} $A^{SE}, A^{ES}$ for the coupling
-        \item restriction through the transposed constraints $\mathcal R\, C_{HN}^T$
-    \end{itemize}
-    $\Rightarrow$ index lists, special cases, branches inside kernels \alert{--- exactly what a GPU hates}
-\end{frame}
-
-\begin{frame}{Why hanging nodes are gone}
-    \small
-    All three pieces turn into identities once vectors are cell-wise and residuals stay unassembled\footnote{Wichrowski
-        (2026), Coalesced MG on cell-wise storage.}:
-    \vspace{0.1em}
-    \begin{enumerate}
-        \item \textbf{Prolongation:} \quad $C_{HN}\,\mathcal P = \mathcal P$\\
-              a prolongated coarse field is \emph{already} continuous on the refinement edge --- nothing to enforce
-              \pause
-        \item \textbf{Restriction:} \quad $\mathcal R_{\text{cell}}$ applied to the \emph{unassembled} residual
-              $\;=\; \mathcal R\, C_{HN}^T$\\
-              plain tensor-product transfer, cell by cell; no constraints
-              \pause
-        \item \textbf{Edge operators:} \quad a pointwise $0/1$ mask on the smoother
-              \begin{itemize}
-                  \item full cell operator reads the edge values $u^E$ $\to$ applies $A^{SE}$ on the fly
-                  \item mask residual and correction on $E_\ell$ $\to$ relaxation with $A^{SS}$
-                  \item unmasked residual after smoothing carries $A^{ES}$ to the coarse level
-              \end{itemize}
-    \end{enumerate}
-    \pause
-    \begin{block}{Theorem}
-        The cell-wise V-cycle equals classical local multigrid \alert{iterate by iterate}.
-    \end{block}
-\end{frame}
-
-\begin{frame}{Bonus: the DSS does not need to know either}
+\begin{frame}{The adaptive test meshes}
     \begin{columns}[c]
         \begin{column}{0.5\textwidth}
             \centering
-            \resizebox{\textwidth}{!}{\input{figures/fig_dss_lshaped.tex}}
+            \includegraphics[width=0.66\textwidth]{figures/grid_crosssection_cube.pdf}\\[0.2em]
+            {\scriptsize Cube: Cartesian, factored operator}
         \end{column}
-        \begin{column}{0.48\textwidth}
-            \small
-            \begin{itemize}
-                \item The structured cascade picks exchange partners \emph{from the memory layout}, not from the mesh
-                \item At re-entrant corners of a level mesh it sums with inactive cells: \alert{wrong values} \pause
-                \item \dots but only on $E_\ell$ --- which the smoother mask discards anyway
-                \item[$\Rightarrow$] the \alert{topology-oblivious} kernel runs unchanged on adaptive meshes
-            \end{itemize}
+        \begin{column}{0.5\textwidth}
+            \centering
+            \includegraphics[width=0.66\textwidth]{figures/grid_crosssection_ball.pdf}\\[0.2em]
+            {\scriptsize Ball: curved, $Q_k$ mapping}
         \end{column}
     \end{columns}
+    \vfill
+    {\small Four adaptive refinements toward the sphere: every level interface carries \alert{hanging nodes} ---
+        and \alert{the kernels never see them}.\\[0.15em]
+        Multigrid hands us conformity for free: a prolongated coarse field \alert{already satisfies the hanging-node
+            constraints} ($C_{HN}\mathcal P = \mathcal P$) --- \alert{nothing to enforce, no constraint machinery}.
+        Iteration counts unchanged, $\sim$10\% off the uniform throughput \emph{(details: appendix)}.}
 \end{frame}
 
 \begin{frame}{Multigrid results: adaptivity is (almost) free}
@@ -763,7 +757,7 @@
     \begin{table}
         \centering
         \caption{CG iterations, cube}
-        \footnotesize
+        \scriptsize
         \begin{tabular}{lcccc|lcccc}
             \toprule
             uniform refinements & 5 & 6 & 7 & 8 & adaptive refinements & 1  & 2  & 3  & 4  \\
@@ -774,22 +768,29 @@
     \vspace{-0.8em}
     \begin{table}
         \centering
-        \caption{Full solve throughput (Cartesian mesh, fp64, A100)}
-        \footnotesize
+        \caption{Full solve throughput (Cartesian mesh, A100, $p=3$)}
+        \scriptsize
         \begin{tabular}{lcc}
             \toprule
-                                                     & \textbf{MDoF/s} & to residual        \\
+                                                           & \textbf{MDoF/s}      & to residual        \\
             \midrule
-            Vertex-patch smoother (Cui et al.\ 2025) & 116             & $10^{-9}$          \\
-            This work, uniform                       & 99.5            & \alert{$10^{-14}$} \\
-            This work, adaptive (hanging nodes)      & 88.8            & \alert{$10^{-14}$} \\
+            Vertex-patch smoother (Cui et al.\ 2025), fp64 & 116                  & $10^{-9}$          \\
+            This work, uniform, fp64                       & 99.5                 & \alert{$10^{-14}$} \\
+            This work, adaptive (hanging nodes), fp64      & 88.8                 & \alert{$10^{-14}$} \\
+            \midrule
+            Cui et al.\ 2025, mixed precision              & 184                  & $10^{-9}$          \\
+            \alert{This work, patch smoother, mixed prec.} & \alert{\textbf{401}} & $10^{-9}$          \\
             \bottomrule
         \end{tabular}
     \end{table}
-    \vspace{-0.8em}
+    \vspace{-1.1em}
     \begin{itemize}
-        \item Grid-independent iteration counts, \alert{unchanged} by local refinement
-        \item Point-Jacobi on par with a patch smoother, converging five orders further; adaptivity costs $\sim$10\%
+        \footnotesize
+        \setlength{\itemsep}{0.15em}
+        \item Iteration counts grid-independent and \alert{unchanged} by local refinement
+              % ; adaptivity costs $\sim$10\%
+        \item Point-Jacobi on par with a patch smoother, converging five orders further
+        \item \alert{Mixed precision + patch smoother: 401\,MDoF/s} --- $2.2\times$ Cui et al.
     \end{itemize}
 \end{frame}
 
@@ -1217,25 +1218,12 @@
 \end{frame}
 
 \begin{frame}{Sweeping the patches near the boundary}
-    \begin{columns}[T]
-        \begin{column}{0.5\textwidth}
-            \small
-            \textbf{Colouring breaks at the boundary}
-            \begin{itemize}
-                \item fitted mesh: same-colour patches do not interact
-                \item CutFEM: the ghost penalty \alert{couples them} along the cut strip
-                \item fix: damping, or stride-$3$ colours on the strip
-            \end{itemize}
-        \end{column}
-        \begin{column}{0.48\textwidth}
-            \small
-            \textbf{Sweep the strip more often}
-            \begin{itemize}
-                \item repeat the cut patches $n_c$ times
-                \item strip work $\mathcal O(h^{-(d-1)})$, bulk $\mathcal O(h^{-d})$: \alert{asymptotically free}
-            \end{itemize}
-        \end{column}
-    \end{columns}
+    \small
+    \textbf{Sweep the strip more often}
+    \begin{itemize}
+        \item repeat the cut patches $n_c$ times
+        \item strip work $\mathcal O(h^{-(d-1)})$, bulk $\mathcal O(h^{-d})$: \alert{asymptotically free}
+    \end{itemize}
     \pause
     \begin{table}
         \centering
@@ -1267,7 +1255,6 @@
         \begin{itemize}
             \item Two-level convergence \alert{independent of $h$ and of how $\Gamma$ cuts the mesh}
             \item W-cycle: the same, under a smallness assumption on the two-level rate
-            \item Parallel variants covered: damped colouring, stride-$3$ strip colouring
         \end{itemize}
     \end{block}
     \vfill
@@ -1496,6 +1483,84 @@
                 \item[\textbullet] [Wichrowski] DG--SBM: geometric multigrid
                 \item[\textbullet] [Wichrowski et al.] Patch smoothing with localized residuals
                 \item[\textbullet] [Wichrowski] Matrix-free high-order SBM operators
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ===========================================================================
+% APPENDIX
+% ===========================================================================
+\appendix
+
+{
+    \title{Appendix}
+    \subtitle{Adaptivity: hanging nodes on cell-wise storage}
+    \begin{frame}
+        \titlepage
+    \end{frame}
+}
+
+% ---------------------------------------------------------------------------
+% Hanging nodes
+% ---------------------------------------------------------------------------
+
+\begin{frame}{Adaptivity: what classical local multigrid needs}
+    \small
+    Local smoothing\footnote{Janssen and Kanschat (2011).}: level $\ell$ smooths only where level-$\ell$ cells exist;
+    cost $\propto$ \#active cells
+    \begin{center}
+        \resizebox{0.62\textwidth}{!}{\input{figures/fig_mg_levels.tex}}\\
+        {\scriptsize Active mesh (left) and its level meshes; refinement edge $E_\ell$ in green}
+    \end{center}
+    The classical implementation carries:
+    \begin{itemize}
+        \item hanging-node constraint matrix $C_{HN}$ inside every operator application
+        \item split level matrix: smooth with $A^{SS}$, \emph{edge operators} $A^{SE}, A^{ES}$ for the coupling
+        \item restriction through the transposed constraints $\mathcal R\, C_{HN}^T$
+    \end{itemize}
+    $\Rightarrow$ index lists, special cases, branches inside kernels \alert{--- exactly what a GPU hates}
+\end{frame}
+
+\begin{frame}{Why hanging nodes are gone}
+    \small
+    All three pieces turn into identities once vectors are cell-wise and residuals stay unassembled\footnote{Wichrowski
+        (2026), Coalesced MG on cell-wise storage.}:
+    \vspace{0.1em}
+    \begin{enumerate}
+        \item \textbf{Prolongation:} \quad $C_{HN}\,\mathcal P = \mathcal P$\\
+              a prolongated coarse field is \emph{already} continuous on the refinement edge --- nothing to enforce
+              \pause
+        \item \textbf{Restriction:} \quad $\mathcal R_{\text{cell}}$ applied to the \emph{unassembled} residual
+              $\;=\; \mathcal R\, C_{HN}^T$\\
+              plain tensor-product transfer, cell by cell; no constraints
+              \pause
+        \item \textbf{Edge operators:} \quad a pointwise $0/1$ mask on the smoother
+              \begin{itemize}
+                  \item full cell operator reads the edge values $u^E$ $\to$ applies $A^{SE}$ on the fly
+                  \item mask residual and correction on $E_\ell$ $\to$ relaxation with $A^{SS}$
+                  \item unmasked residual after smoothing carries $A^{ES}$ to the coarse level
+              \end{itemize}
+    \end{enumerate}
+    \pause
+    \begin{block}{Theorem}
+        The cell-wise V-cycle equals classical local multigrid \alert{iterate by iterate}.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Bonus: the DSS does not need to know either}
+    \begin{columns}[c]
+        \begin{column}{0.5\textwidth}
+            \centering
+            \resizebox{\textwidth}{!}{\input{figures/fig_dss_lshaped.tex}}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \small
+            \begin{itemize}
+                \item The structured cascade picks exchange partners \emph{from the memory layout}, not from the mesh
+                \item At re-entrant corners of a level mesh it sums with inactive cells: \alert{wrong values} \pause
+                \item \dots but only on $E_\ell$ --- which the smoother mask discards anyway
+                \item[$\Rightarrow$] the \alert{topology-oblivious} kernel runs unchanged on adaptive meshes
             \end{itemize}
         \end{column}
     \end{columns}
