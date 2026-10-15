@@ -743,11 +743,14 @@
         \end{column}
     \end{columns}
     \vfill
-    {\small Four adaptive refinements toward the sphere: every level interface carries \alert{hanging nodes} ---
-        and \alert{the kernels never see them}.\\[0.15em]
-        Multigrid hands us conformity for free: a prolongated coarse field \alert{already satisfies the hanging-node
-            constraints} ($C_{HN}\mathcal P = \mathcal P$) --- \alert{nothing to enforce, no constraint machinery}.
-        Iteration counts unchanged, $\sim$10\% off the uniform throughput \emph{(details: appendix)}.}
+    \begin{itemize}
+        \small
+        \setlength{\itemsep}{0.3em}
+        \item Four adaptive refinements toward the sphere: every level interface carries \alert{hanging nodes}
+        \item Multigrid gives conformity for free: $C_{HN}\mathcal P = \mathcal P$ --- \alert{nothing to enforce, no constraint
+                  machinery}
+        \item Same operator, same DSS: \alert{the kernels never see them} \hfill {\footnotesize\emph{(details: appendix)}}
+    \end{itemize}
 \end{frame}
 
 \begin{frame}{Multigrid results: adaptivity is (almost) free}
@@ -1247,7 +1250,7 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}{What I proven }
+\begin{frame}{What I proved }
     Levels are \emph{non-inherited}: every level has its own active mesh and its own ghost faces;
     energy lives on $\Omega$, functions on $\Omega_\ell \supseteq \Omega$
 
